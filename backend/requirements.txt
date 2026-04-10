@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+firebase-admin
+python-multipart
+pypdf
+pymupdf
+python-docx
+python-dotenv
+groq
+chromadb
+sentence-transformers
+torch
+transformers
+web3

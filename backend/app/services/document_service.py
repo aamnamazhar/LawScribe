@@ -1,0 +1,91 @@
+import os
+import datetime
+from fastapi import HTTPException
+from app.utils.hashing import generate_file_hash
+from app.core.firebase import get_db, get_bucket
+
+UPLOAD_DIR = os.path.abspath("uploads")
+USE_FIREBASE_STORAGE = os.getenv("USE_FIREBASE_STORAGE", "false").lower() == "true"
+MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(50 * 1024 * 1024)))  # 50 MB
+ALLOWED_EXTS = {".pdf", ".docx", ".txt"}
+
+if not os.path.exists(UPLOAD_DIR):
+    os.makedirs(UPLOAD_DIR)
+
+
+def _safe_extension(filename: str | None) -> str:
+    """Return a normalized, allow-listed file extension. Defaults to .pdf if missing."""
+    if not filename:
+        return ".pdf"
+    ext = os.path.splitext(filename)[1].lower()
+    if ext not in ALLOWED_EXTS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type: {ext or '(none)'}. Allowed: {sorted(ALLOWED_EXTS)}",
+        )
+    return ext
+
+
+def save_document(file):
+    file_bytes = file.file.read()
+    if not file_bytes:
+        raise HTTPException(status_code=400, detail="Empty upload")
+    if len(file_bytes) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File exceeds max size of {MAX_UPLOAD_BYTES} bytes",
+        )
+
+    ext = _safe_extension(file.filename)
+    file_hash = generate_file_hash(file_bytes)
+
+    # Always save locally — AI pipeline needs local file access.
+    # Name the file by its hash (not the user-supplied filename) to prevent
+    # path traversal and filename collisions between users.
+    safe_name = f"{file_hash}{ext}"
+    file_path = os.path.join(UPLOAD_DIR, safe_name)
+    # Defense in depth: confirm the resolved path is still inside UPLOAD_DIR.
+    if os.path.commonpath([os.path.abspath(file_path), UPLOAD_DIR]) != UPLOAD_DIR:
+        raise HTTPException(status_code=400, detail="Invalid upload path")
+
+    with open(file_path, "wb") as f:
+        f.write(file_bytes)
+
+    storage_url = f"local://{file_path}"
+
+    # Upload to Firebase Storage only when flag is enabled
+    if USE_FIREBASE_STORAGE:
+        try:
+            bucket = get_bucket()
+            blob = bucket.blob(f"documents/{file_hash}/{safe_name}")
+            blob.upload_from_string(
+                file_bytes,
+                content_type=file.content_type or "application/octet-stream"
+            )
+            blob.make_public()
+            storage_url = blob.public_url
+        except Exception as e:
+            print(f"[Storage] Firebase upload failed, keeping local: {e}")
+
+    # Write metadata to Firestore DOCUMENTS collection
+    try:
+        db = get_db()
+        db.collection("DOCUMENTS").document(file_hash).set({
+            "doc_id": file_hash,
+            "filename": file.filename,
+            "hash": file_hash,
+            "local_path": file_path,
+            "storage_url": storage_url,
+            "uploaded_at": datetime.datetime.utcnow().isoformat(),
+            "status": "uploaded"
+        })
+    except Exception as e:
+        print(f"[Firestore] Write failed: {e}")
+
+    return {
+        "filename": file.filename,
+        "path": file_path,
+        "hash": file_hash,
+        "storage_url": storage_url,
+        "size_bytes": len(file_bytes),
+    }

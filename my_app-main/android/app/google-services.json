@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "257462774742",
+    "project_id": "c121890",
+    "storage_bucket": "c121890.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:257462774742:android:2e8849715f425ca7069277",
+        "android_client_info": {
+          "package_name": "com.example.lawscribe_ai"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCLilquOToMRkIOgd-A3yaH9suZrO8_tH4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:257462774742:android:a9862ed3d1e4b6b2069277",
+        "android_client_info": {
+          "package_name": "com.example.my_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCLilquOToMRkIOgd-A3yaH9suZrO8_tH4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

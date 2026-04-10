@@ -1,0 +1,42 @@
+# --- Secrets ---
+.env
+.env.*
+*.env
+!.env.example
+*firebase-service-account*.json
+*service-account*.json
+*credentials*.json
+*-key.json
+*.pem
+*.key
+secrets/
+.secrets/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# --- AI / models / data ---
+AI/vectorstore/
+AI/clause_model/
+AI/__pycache__/
+backend/uploads/
+backend/app/__pycache__/
+
+# --- IDE ---
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# --- Node / Flutter web build (handled also in my_app-main/.gitignore) ---
+node_modules/
