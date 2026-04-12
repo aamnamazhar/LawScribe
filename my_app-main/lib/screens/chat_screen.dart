@@ -8,8 +8,9 @@ import '../components/message_input.dart';
 import '../components/scribe_logo.dart';
 // import '../components/appbar_hover_icon.dart';
 import '../components/hover_icon.dart';
-import '../components/_header_button.dart';
 import '../theme_provider.dart';
+import '../screens/dashboard_screen.dart';
+import '../screens/settings_screen.dart';
 
 // ── Layman-friendly clause metadata ─────────────────────────────────────────
 //
@@ -221,21 +222,59 @@ class _ChatScreenState extends State<ChatScreen> {
     _scrollToBottom();
 
     try {
-      String aiResponse;
       final lowerText = userText.toLowerCase();
 
-      if (lowerText.contains("summary") ||
+      final bool isSummary = lowerText.contains("summary") ||
           lowerText.contains("summarize") ||
-          lowerText.contains("summarise")) {
-        aiResponse = await ApiService.getSummary(currentDocId!);
-      } else if (lowerText.contains("clause") ||
+          lowerText.contains("summarise");
+
+      final bool isClauses = lowerText.contains("clause") ||
           lowerText.contains("clauses") ||
-          lowerText.contains("detect")) {
+          lowerText.contains("detect");
+
+      final bool isInsights = lowerText.contains("insight") ||
+          lowerText.contains("explain clauses") ||
+          lowerText.contains("what do the clauses mean");
+
+      // ── Streaming path: summary & general Q&A ────────────────────────
+      if (isSummary || (!isClauses && !isInsights)) {
+        final stream = isSummary
+            ? ApiService.getSummaryStream(currentDocId!)
+            : ApiService.queryDocumentStream(currentDocId!, userText);
+
+        // Add an empty AI message that we'll fill token-by-token
+        final msgIndex = messages.length;
+        setState(() {
+          isTyping = false;
+          messages.add({
+            'sender': 'ai',
+            'type': 'text',
+            'text': '',
+            'time': _formatTime(DateTime.now()),
+          });
+        });
+
+        await for (final token in stream) {
+          if (!mounted) return;
+          setState(() {
+            messages[msgIndex]['text'] =
+                (messages[msgIndex]['text'] as String) + token;
+          });
+          _scrollToBottom();
+        }
+
+        _scrollToBottom();
+        return;
+      }
+
+      // ── Non-streaming path: clauses & insights (structured JSON) ─────
+      String aiResponse;
+
+      if (isClauses) {
         final clauses = await ApiService.getClauses(currentDocId!);
         aiResponse = _formatClausesResponse(clauses);
-      } else if (lowerText.contains("insight") ||
-          lowerText.contains("explain clauses") ||
-          lowerText.contains("what do the clauses mean")) {
+      } else {
+        // insights
         final insights = await ApiService.getInsights(currentDocId!);
         if (insights.isEmpty) {
           aiResponse = "No clause insights available for this document.";
@@ -244,9 +283,6 @@ class _ChatScreenState extends State<ChatScreen> {
               "📌 ${i['clause_type']}\n${i['insight']}").join("\n\n");
           aiResponse = lines;
         }
-      } else {
-        // General Q&A via RAG
-        aiResponse = await ApiService.queryDocument(currentDocId!, userText);
       }
 
       if (!mounted) return;
@@ -340,25 +376,29 @@ class _ChatScreenState extends State<ChatScreen> {
     return buffer.toString();
   }
 
-  void _simulateAIReply() async {
-    await Future.delayed(const Duration(seconds: 2));
-    if (!mounted) return;
+  int _noDocReplyIndex = 0;
 
-    final replies = [
-      "Based on general legal principles, contracts must clearly define the obligations of all parties involved.",
-      "From a legal standpoint, enforceability depends on mutual consent, valid consideration, and a lawful purpose.",
-      "This situation may involve contractual interpretation. I recommend reviewing the termination and liability clauses carefully.",
-      "In most jurisdictions, written agreements carry significantly more weight than verbal assurances.",
-      "It would be advisable to review this document carefully. Would you like me to identify the key clauses?",
-      "Let me break this down simply: the wording of the contract determines your rights and responsibilities.",
-    ];
+  static const _noDocReplies = [
+    "Hey there! To get started, upload a legal document using the "
+        "attach button below. Once uploaded, I can summarize it, detect "
+        "clauses, explain risks, and answer any questions about it.",
+    "I'd love to help! I need a document to work with though — "
+        "tap the attach icon to upload a PDF, DOCX, or TXT file.",
+    "I'm built to analyze legal documents. Upload one and I can "
+        "break it down for you in plain English.",
+    "No document uploaded yet. Attach a contract and ask me to "
+        "summarize it, find clauses, or explain what it means.",
+  ];
+
+  void _simulateAIReply() {
+    final reply = _noDocReplies[_noDocReplyIndex % _noDocReplies.length];
+    _noDocReplyIndex++;
 
     setState(() {
-      isTyping = false;
       messages.add({
         'sender': 'ai',
         'type': 'text',
-        'text': replies[DateTime.now().millisecondsSinceEpoch % replies.length],
+        'text': reply,
         'time': _formatTime(DateTime.now()),
       });
     });
@@ -570,11 +610,98 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  // ── Welcome hero (empty state) ──────────────────────────────────────────
+
+  Widget _buildWelcomeHero(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Logo icon
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFD4AF6A), Color(0xFFF5D98B)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(22),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFD4AF6A).withOpacity(0.3),
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.bolt_rounded,
+                color: Color(0xFF0A0A14),
+                size: 36,
+              ),
+            ),
+
+            const SizedBox(height: 28),
+
+            // Greeting
+            Text(
+              'Welcome to LawScribe',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w700,
+                color: context.textPrimary,
+                letterSpacing: -0.5,
+              ),
+            ),
+
+            const SizedBox(height: 10),
+
+            Text(
+              'Upload a document or type a message\nto get started.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 15,
+                color: context.textSecondary,
+                height: 1.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: context.bgColor,
       appBar: _buildAppBar(context),
+      drawer: Drawer(
+        width: MediaQuery.of(context).size.width * 0.85,
+        backgroundColor: context.bgColor,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.only(
+            topRight: Radius.circular(24),
+            bottomRight: Radius.circular(24),
+          ),
+        ),
+        child: const DashboardScreen(asDrawer: true),
+      ),
+      endDrawer: Drawer(
+        width: MediaQuery.of(context).size.width * 0.85,
+        backgroundColor: context.bgColor,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(24),
+            bottomLeft: Radius.circular(24),
+          ),
+        ),
+        child: const SettingsScreen(asDrawer: true),
+      ),
       body: Stack(
         children: [
           // Ambient glow — top left
@@ -618,52 +745,57 @@ class _ChatScreenState extends State<ChatScreen> {
             children: [
               const SizedBox(height: 8),
               Expanded(
-                child: ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.fromLTRB(14, 20, 14, 12),
-                  itemCount: messages.length + (isTyping ? 1 : 0),
-                  itemBuilder: (context, index) {
-                    // Typing bubble
-                    if (isTyping && index == messages.length) {
-                      return ChatBubble(
-                        isUser: false,
-                        label: 'AI',
-                        message: '',
-                        time: '',
-                        isTyping: true,
-                      );
-                    }
+                child: messages.length <= 1 && !isTyping
+                    ? _buildWelcomeHero(context)
+                    : ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.fromLTRB(14, 20, 14, 12),
+                        itemCount: messages.length + (isTyping ? 1 : 0),
+                        itemBuilder: (context, index) {
+                          // Typing bubble
+                          if (isTyping && index == messages.length) {
+                            return ChatBubble(
+                              isUser: false,
+                              label: 'AI',
+                              message: '',
+                              time: '',
+                              isTyping: true,
+                            );
+                          }
 
-                    final msg = messages[index];
+                          final msg = messages[index];
 
-                    return ChatBubble(
-                      isUser: msg['sender'] == 'user',
-                      label: msg['sender'] == 'user'
-                          ? currentUserName[0].toUpperCase()
-                          : 'AI',
-                      message: msg['text'],
-                      fileName: msg['fileName'],
-                      fileSize: msg['fileSize'],
-                      time: msg['time'],
-                      delivered: msg['sender'] == 'user',
-                      onCopy: () {
-                        if (msg['text'] != null) {
-                          Clipboard.setData(ClipboardData(text: msg['text']));
-                          _showSuccessSnackbar('Message copied!');
-                        }
-                      },
-                      onEdit: msg['sender'] == 'user'
-                          ? () => _showEditDialog(index)
-                          : null,
-                      onDislike: msg['sender'] == 'ai'
-                          ? () => _showInfoSnackbar('Thanks for your feedback!')
-                          : null,
-                      onShare: msg['sender'] == 'ai'
-                          ? () => _showInfoSnackbar('Share coming soon.')
-                          : null,
-                    );
-                  },
-                ),
+                          return ChatBubble(
+                            isUser: msg['sender'] == 'user',
+                            label: msg['sender'] == 'user'
+                                ? currentUserName[0].toUpperCase()
+                                : 'AI',
+                            message: msg['text'],
+                            fileName: msg['fileName'],
+                            fileSize: msg['fileSize'],
+                            time: msg['time'],
+                            delivered: msg['sender'] == 'user',
+                            onCopy: () {
+                              if (msg['text'] != null) {
+                                Clipboard.setData(
+                                    ClipboardData(text: msg['text']));
+                                _showSuccessSnackbar('Message copied!');
+                              }
+                            },
+                            onEdit: msg['sender'] == 'user'
+                                ? () => _showEditDialog(index)
+                                : null,
+                            onDislike: msg['sender'] == 'ai'
+                                ? () => _showInfoSnackbar(
+                                    'Thanks for your feedback!')
+                                : null,
+                            onShare: msg['sender'] == 'ai'
+                                ? () =>
+                                    _showInfoSnackbar('Share coming soon.')
+                                : null,
+                          );
+                        },
+                      ),
               ),
               MessageInputBar(onSend: sendMessage),
             ],
@@ -678,7 +810,7 @@ class _ChatScreenState extends State<ChatScreen> {
       preferredSize: const Size.fromHeight(72),
       child: AppBar(
         elevation: 0,
-        centerTitle: false,
+        centerTitle: true,
         automaticallyImplyLeading: false,
         backgroundColor: Colors.transparent,
         flexibleSpace: Container(
@@ -699,174 +831,28 @@ class _ChatScreenState extends State<ChatScreen> {
             ],
           ),
         ),
-        leading: HoverIcon(
-          icon: Icons.arrow_back_ios_new_rounded,
-          tooltip: 'Back',
-          onTap: () => Navigator.of(context).pop(),
+        // Hamburger → opens left drawer (Dashboard)
+        leading: Builder(
+          builder: (ctx) => HoverIcon(
+            icon: Icons.menu_rounded,
+            tooltip: 'Dashboard',
+            onTap: () => Scaffold.of(ctx).openDrawer(),
+          ),
         ),
-        title: const Padding(
-          padding: EdgeInsets.only(left: 4),
-          child: ScribeLogo(height: 36),
-        ),
+        title: const ScribeLogo(height: 36),
         actions: [
+          // Settings gear → opens right drawer (Settings)
           Builder(
-            builder: (context) {
-              final screenWidth = MediaQuery.of(context).size.width;
-              if (screenWidth < 520) {
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: _HoverMenuButton(
-                    icon: Icons.menu_rounded,
-                    items: [
-                      _HoverMenuItem(
-                        icon: Icons.dashboard_outlined,
-                        label: 'Dashboard',
-                        onTap: () => Navigator.pushNamed(context, '/dashboard'),
-                      ),
-                      _HoverMenuItem(
-                        icon: Icons.settings_outlined,
-                        label: 'Settings',
-                        onTap: () => Navigator.pushNamed(context, '/settings'),
-                      ),
-                    ],
-                  ),
-                );
-              }
-              return Row(
-                children: [
-                  HeaderButton(
-                    icon: Icons.dashboard_outlined,
-                    label: 'Dashboard',
-                    onTap: () => Navigator.pushNamed(context, '/dashboard'),
-                  ),
-                  HeaderButton(
-                    icon: Icons.settings_outlined,
-                    label: 'Settings',
-                    onTap: () => Navigator.pushNamed(context, '/settings'),
-                  ),
-                  const SizedBox(width: 8),
-                ],
-              );
-            },
+            builder: (ctx) => Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: HoverIcon(
+                icon: Icons.settings_outlined,
+                tooltip: 'Settings',
+                onTap: () => Scaffold.of(ctx).openEndDrawer(),
+              ),
+            ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ── HOVER MENU ────────────────────────────────────────────────────────────────
-
-class _HoverMenuButton extends StatefulWidget {
-  final IconData icon;
-  final List<_HoverMenuItem> items;
-
-  const _HoverMenuButton({required this.icon, required this.items, Key? key})
-    : super(key: key);
-
-  @override
-  State<_HoverMenuButton> createState() => _HoverMenuButtonState();
-}
-
-class _HoverMenuButtonState extends State<_HoverMenuButton> {
-  bool _hover = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
-      child: PopupMenuButton<int>(
-        icon: Icon(
-          widget.icon,
-          color: _hover ? context.textPrimary : context.textSecondary,
-        ),
-        color: context.popupColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        itemBuilder: (context) => List.generate(widget.items.length, (i) {
-          final item = widget.items[i];
-          return PopupMenuItem(
-            value: i,
-            child: _HoverMenuTile(
-              icon: item.icon,
-              label: item.label,
-              onTap: () {
-                Navigator.pop(context);
-                item.onTap();
-              },
-            ),
-          );
-        }),
-      ),
-    );
-  }
-}
-
-class _HoverMenuItem {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  _HoverMenuItem({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-}
-
-class _HoverMenuTile extends StatefulWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _HoverMenuTile({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    Key? key,
-  }) : super(key: key);
-
-  @override
-  State<_HoverMenuTile> createState() => _HoverMenuTileState();
-}
-
-class _HoverMenuTileState extends State<_HoverMenuTile> {
-  bool _hover = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
-      child: InkWell(
-        onTap: widget.onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: _hover
-                ? const Color(0xFFD4AF6A).withOpacity(0.08)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                widget.icon,
-                size: 20,
-                color: const Color(0xFFD4AF6A).withOpacity(0.85),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                widget.label,
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: context.textPrimary,
-                  fontSize: 14,
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

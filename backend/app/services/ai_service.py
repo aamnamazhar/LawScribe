@@ -8,7 +8,10 @@ _AI_DIR = os.path.abspath(
 if _AI_DIR not in sys.path:
     sys.path.insert(0, _AI_DIR)
 
-from rag import index_document, query_document, generate_summary, generate_insights
+from rag import (
+    index_document, query_document, generate_summary, generate_insights,
+    query_document_stream, generate_summary_stream,
+)
 from clause_detector import detect_clauses
 from extract import extract_text
 from preprocess import clean_text
@@ -46,6 +49,16 @@ def get_summary(doc_id: str) -> str:
 def answer_question(question: str, doc_id: str) -> str:
     """Answer a question about a document using RAG."""
     return query_document(question, doc_id)
+
+
+def get_summary_stream(doc_id: str):
+    """Streaming summary — yields text chunks."""
+    yield from generate_summary_stream(doc_id)
+
+
+def answer_question_stream(question: str, doc_id: str):
+    """Streaming Q&A — yields text chunks."""
+    yield from query_document_stream(question, doc_id)
 
 
 def get_clauses(doc_id: str) -> list:

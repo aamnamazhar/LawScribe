@@ -22,7 +22,7 @@ class DashboardStatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       decoration: BoxDecoration(
         color: context.cardColor,
         borderRadius: BorderRadius.circular(16),
@@ -31,71 +31,54 @@ class DashboardStatCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Top accent bar
-          Container(
-            height: 2,
-            width: 36,
-            margin: const EdgeInsets.only(bottom: 14),
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(2),
-                bottomRight: Radius.circular(2),
+          // Icon — top right aligned
+          Align(
+            alignment: Alignment.topRight,
+            child: Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(9),
               ),
+              child: Icon(icon, size: 18, color: color),
             ),
           ),
 
-          // Label row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Flexible(
-                child: Text(
-                  title.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: context.textSecondary,
-                    letterSpacing: 0.8,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(width: 4),
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(7),
-                ),
-                child: Icon(icon, size: 14, color: color),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 8),
+          const Spacer(),
 
           // Value
           Text(
             value,
             style: TextStyle(
-              fontSize: 26,
+              fontSize: 30,
               fontWeight: FontWeight.w500,
               color: context.textPrimary,
               height: 1,
             ),
           ),
 
+          const SizedBox(height: 6),
+
+          // Title — full width, no truncation
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: context.textSecondary,
+            ),
+          ),
+
           if (delta != null || subtitle != null) ...[
-            const SizedBox(height: 5),
+            const SizedBox(height: 4),
             Row(
               children: [
                 if (delta != null) ...[
                   Text(
                     delta!,
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: 12,
                       color: color.withOpacity(0.85),
                       fontWeight: FontWeight.w500,
                     ),
@@ -106,7 +89,7 @@ class DashboardStatCard extends StatelessWidget {
                   Text(
                     subtitle!,
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: 12,
                       color: context.textSecondary,
                     ),
                   ),

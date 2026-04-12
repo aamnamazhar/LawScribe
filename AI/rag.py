@@ -97,6 +97,49 @@ Answer:"""
     return response.choices[0].message.content
 
 
+def query_document_stream(question, doc_id, top_k=3):
+    """
+    Streaming version of query_document — yields text chunks as they arrive.
+    """
+    try:
+        collection = chroma_client.get_collection(name=f"doc_{doc_id}")
+    except Exception as e:
+        print(f"[rag] query_document_stream: collection lookup failed: {e}")
+        yield "Document not found. Please upload it first."
+        return
+
+    question_embedding = embedder.encode(question).tolist()
+    results = collection.query(
+        query_embeddings=[question_embedding],
+        n_results=top_k
+    )
+
+    relevant_chunks = results['documents'][0]
+    context = "\n\n".join(relevant_chunks)
+
+    prompt = f"""You are a legal document assistant.
+Answer the question based ONLY on the document context provided below.
+If the answer is not in the context, say "I couldn't find this in the document."
+Do not make up information.
+
+Document Context:
+{context}
+
+Question: {question}
+
+Answer:"""
+
+    stream = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[{"role": "user", "content": prompt}],
+        stream=True,
+    )
+    for chunk in stream:
+        delta = chunk.choices[0].delta.content
+        if delta:
+            yield delta
+
+
 def generate_summary(doc_id):
     """
     Generate a plain language summary of the document.
@@ -128,6 +171,41 @@ Summary:"""
         ]
     )
     return response.choices[0].message.content
+
+
+def generate_summary_stream(doc_id):
+    """
+    Streaming version of generate_summary — yields text chunks as they arrive.
+    """
+    try:
+        collection = chroma_client.get_collection(name=f"doc_{doc_id}")
+    except Exception as e:
+        print(f"[rag] generate_summary_stream: collection lookup failed: {e}")
+        yield "Document not found."
+        return
+
+    results = collection.get()
+    all_text = "\n\n".join(results['documents'][:5])
+
+    prompt = f"""You are a legal document assistant.
+Summarize the following legal document in simple, plain English.
+Keep it concise — 3 to 5 sentences.
+Do not use legal jargon.
+
+Document:
+{all_text}
+
+Summary:"""
+
+    stream = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[{"role": "user", "content": prompt}],
+        stream=True,
+    )
+    for chunk in stream:
+        delta = chunk.choices[0].delta.content
+        if delta:
+            yield delta
 
 
 def generate_insights(detected_clauses, doc_id):

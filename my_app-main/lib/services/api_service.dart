@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
@@ -101,6 +102,72 @@ class ApiService {
       return jsonDecode(response.body)["insights"];
     }
     throw Exception("Insights failed: ${response.body}");
+  }
+
+  // ── Streaming Summary (SSE) ───────────────────────────────────────────────
+
+  static Stream<String> getSummaryStream(String docId) async* {
+    final uri = Uri.parse(
+      "$baseUrl/ai/summary/stream?doc_id=${Uri.encodeComponent(docId)}",
+    );
+    final headers = await _authHeaders();
+    final request = http.Request("GET", uri)..headers.addAll(headers);
+    final response = await http.Client().send(request);
+
+    if (response.statusCode != 200) {
+      throw Exception("Summary stream failed: ${response.statusCode}");
+    }
+
+    yield* _parseSseStream(response.stream);
+  }
+
+  // ── Streaming Q&A (SSE) ──────────────────────────────────────────────────
+
+  static Stream<String> queryDocumentStream(
+    String docId,
+    String question,
+  ) async* {
+    final uri = Uri.parse("$baseUrl/ai/query/stream");
+    final headers = await _authHeaders();
+    final request = http.Request("POST", uri)
+      ..headers.addAll(headers)
+      ..body = jsonEncode({"doc_id": docId, "question": question});
+    final response = await http.Client().send(request);
+
+    if (response.statusCode != 200) {
+      throw Exception("Query stream failed: ${response.statusCode}");
+    }
+
+    yield* _parseSseStream(response.stream);
+  }
+
+  /// Parse an SSE byte stream into individual text tokens.
+  static Stream<String> _parseSseStream(
+    Stream<List<int>> byteStream,
+  ) async* {
+    String buffer = '';
+    await for (final bytes in byteStream) {
+      buffer += utf8.decode(bytes);
+      // SSE events are separated by double newlines
+      while (buffer.contains('\n\n')) {
+        final idx = buffer.indexOf('\n\n');
+        final event = buffer.substring(0, idx).trim();
+        buffer = buffer.substring(idx + 2);
+
+        if (event.startsWith('data: ')) {
+          final payload = event.substring(6);
+          if (payload == '[DONE]') return;
+          try {
+            final data = jsonDecode(payload);
+            if (data['token'] != null) {
+              yield data['token'] as String;
+            }
+          } catch (_) {
+            // skip malformed events
+          }
+        }
+      }
+    }
   }
 
   // ── Blockchain Verify ─────────────────────────────────────────────────────

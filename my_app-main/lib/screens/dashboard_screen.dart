@@ -124,7 +124,8 @@ class ActivityItem {
 // ── DASHBOARD SCREEN ──────────────────────────────────────────────────────────
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+  final bool asDrawer;
+  const DashboardScreen({super.key, this.asDrawer = false});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -192,122 +193,152 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // ── Build ────────────────────────────────────────────────────────────────
 
+  Widget _buildBody(BuildContext context) {
+    return Stack(
+      children: [
+        // Ambient glow — top left
+        Positioned(
+          top: -60,
+          left: -60,
+          child: Container(
+            width: 240,
+            height: 240,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  const Color(0xFF7B5EA7).withOpacity(0.15),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+        ),
+        // Ambient glow — bottom right
+        Positioned(
+          bottom: -40,
+          right: -40,
+          child: Container(
+            width: 180,
+            height: 180,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  const Color(0xFFC9A84C).withOpacity(0.12),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+        ),
+        SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 28, 20, 44),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const _SectionTitle(label: 'Dashboard'),
+              const SizedBox(height: 16),
+
+              // ── Stat cards (responsive grid) ─────────────────────────
+              _buildStatsGrid(),
+              const SizedBox(height: 24),
+
+              // ── Quick actions ────────────────────────────────────────
+              const _SectionHeader(label: 'Quick actions'),
+              const SizedBox(height: 12),
+              DashboardQuickAction(
+                icon: Icons.auto_awesome_rounded,
+                label: 'New chat',
+                subtitle: 'Start an AI conversation',
+                color: const Color(0xFF7B5EA7),
+                onTap: () {
+                  if (widget.asDrawer) {
+                    Navigator.pop(context);
+                  } else {
+                    Navigator.pushNamed(context, '/chat');
+                  }
+                },
+              ),
+              const SizedBox(height: 8),
+              DashboardQuickAction(
+                icon: Icons.upload_file_outlined,
+                label: 'Upload document',
+                subtitle: 'PDF, DOCX, TXT',
+                color: const Color(0xFF4A90D9),
+                onTap: () {
+                  if (widget.asDrawer) {
+                    Navigator.pop(context);
+                  } else {
+                    Navigator.pushNamed(context, '/chat');
+                  }
+                },
+              ),
+              const SizedBox(height: 8),
+              DashboardQuickAction(
+                icon: Icons.edit_note_rounded,
+                label: 'New document',
+                subtitle: 'Start from scratch',
+                color: const Color(0xFF4CAF82),
+                onTap: () {
+                  if (widget.asDrawer) {
+                    Navigator.pop(context);
+                  } else {
+                    Navigator.pushNamed(context, '/chat');
+                  }
+                },
+              ),
+              const SizedBox(height: 28),
+
+              // ── Recent documents ─────────────────────────────────────
+              const _SectionHeader(
+                label: 'Recent documents',
+                action: 'View all',
+              ),
+              const SizedBox(height: 12),
+              _buildRecentDocs(),
+              const SizedBox(height: 28),
+
+              // ── Activity feed ────────────────────────────────────────
+              const _SectionHeader(label: 'Recent activity', action: 'Today'),
+              const SizedBox(height: 12),
+              _buildActivityFeed(),
+              const SizedBox(height: 28),
+
+              // ── Usage quota ──────────────────────────────────────────
+              const _SectionHeader(
+                label: 'Usage this month',
+                action: 'Free plan',
+              ),
+              const SizedBox(height: 12),
+              _buildUsageQuota(),
+              const SizedBox(height: 28),
+
+              // ── Weekly bar chart ─────────────────────────────────────
+              const _SectionHeader(label: 'Weekly usage'),
+              const SizedBox(height: 12),
+              _buildWeeklyChart(),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    // When used inside a Drawer, skip the Scaffold/AppBar wrapper.
+    if (widget.asDrawer) {
+      return Container(
+        color: context.bgColor,
+        child: SafeArea(child: _buildBody(context)),
+      );
+    }
+
     return Scaffold(
       backgroundColor: context.bgColor,
       appBar: _buildAppBar(context),
-      body: Stack(
-        children: [
-          // Ambient glow — top left
-          Positioned(
-            top: -60,
-            left: -60,
-            child: Container(
-              width: 240,
-              height: 240,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    const Color(0xFF7B5EA7).withOpacity(0.15),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-            ),
-          ),
-          // Ambient glow — bottom right
-          Positioned(
-            bottom: -40,
-            right: -40,
-            child: Container(
-              width: 180,
-              height: 180,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    const Color(0xFFC9A84C).withOpacity(0.12),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-            ),
-          ),
-          SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 24, 16, 40),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const _SectionTitle(label: 'Dashboard'),
-                const SizedBox(height: 16),
-
-                // ── Stat cards (responsive grid) ─────────────────────────
-                _buildStatsGrid(),
-                const SizedBox(height: 24),
-
-                // ── Quick actions ────────────────────────────────────────
-                const _SectionHeader(label: 'Quick actions'),
-                const SizedBox(height: 12),
-                DashboardQuickAction(
-                  icon: Icons.auto_awesome_rounded,
-                  label: 'New chat',
-                  subtitle: 'Start an AI conversation',
-                  color: const Color(0xFF7B5EA7),
-                  onTap: () => Navigator.pushNamed(context, '/chat'),
-                ),
-                const SizedBox(height: 8),
-                DashboardQuickAction(
-                  icon: Icons.upload_file_outlined,
-                  label: 'Upload document',
-                  subtitle: 'PDF, DOCX, TXT',
-                  color: const Color(0xFF4A90D9),
-                  onTap: () => Navigator.pushNamed(context, '/chat'),
-                ),
-                const SizedBox(height: 8),
-                DashboardQuickAction(
-                  icon: Icons.edit_note_rounded,
-                  label: 'New document',
-                  subtitle: 'Start from scratch',
-                  color: const Color(0xFF4CAF82),
-                  onTap: () => Navigator.pushNamed(context, '/chat'),
-                ),
-                const SizedBox(height: 28),
-
-                // ── Recent documents ─────────────────────────────────────
-                const _SectionHeader(
-                  label: 'Recent documents',
-                  action: 'View all',
-                ),
-                const SizedBox(height: 12),
-                _buildRecentDocs(),
-                const SizedBox(height: 28),
-
-                // ── Activity feed ────────────────────────────────────────
-                const _SectionHeader(label: 'Recent activity', action: 'Today'),
-                const SizedBox(height: 12),
-                _buildActivityFeed(),
-                const SizedBox(height: 28),
-
-                // ── Usage quota ──────────────────────────────────────────
-                const _SectionHeader(
-                  label: 'Usage this month',
-                  action: 'Free plan',
-                ),
-                const SizedBox(height: 12),
-                _buildUsageQuota(),
-                const SizedBox(height: 28),
-
-                // ── Weekly bar chart ─────────────────────────────────────
-                const _SectionHeader(label: 'Weekly usage'),
-                const SizedBox(height: 12),
-                _buildWeeklyChart(),
-              ],
-            ),
-          ),
-        ],
-      ),
+      body: _buildBody(context),
     );
   }
 
@@ -358,14 +389,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
           builder: (context, constraints) {
             final width = constraints.maxWidth;
             final crossAxisCount = width > 600 ? 4 : 2;
-            final aspectRatio = crossAxisCount == 4 ? 1.5 : 1.3;
+            final aspectRatio = crossAxisCount == 4 ? 1.2 : 0.95;
 
             return GridView.count(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               crossAxisCount: crossAxisCount,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
               childAspectRatio: aspectRatio,
               children: cards,
             );
@@ -492,10 +523,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               children: [
                 Text(
                   'Daily chats this week',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: context.textSecondary,
-                  ),
+                  style: TextStyle(fontSize: 13, color: context.textSecondary),
                 ),
                 const SizedBox(height: 12),
                 _WeeklyBarChart(values: values),
@@ -652,8 +680,8 @@ class _SectionTitle extends StatelessWidget {
     return Row(
       children: [
         Container(
-          width: 3,
-          height: 22,
+          width: 4,
+          height: 26,
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               colors: [Color(0xFFD4AF6A), Color(0xFFF5D98B)],
@@ -663,11 +691,11 @@ class _SectionTitle extends StatelessWidget {
             borderRadius: BorderRadius.circular(3),
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 12),
         Text(
           label,
           style: TextStyle(
-            fontSize: 20,
+            fontSize: 24,
             fontWeight: FontWeight.w700,
             color: context.textPrimary,
             letterSpacing: -0.4,
@@ -691,7 +719,7 @@ class _SectionHeader extends StatelessWidget {
         Text(
           label,
           style: TextStyle(
-            fontSize: 15,
+            fontSize: 17,
             fontWeight: FontWeight.w600,
             color: context.textPrimary,
             letterSpacing: -0.2,
@@ -699,7 +727,7 @@ class _SectionHeader extends StatelessWidget {
         ),
         if (action != null)
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
             decoration: BoxDecoration(
               color: context.borderColor,
               borderRadius: BorderRadius.circular(20),
@@ -708,7 +736,7 @@ class _SectionHeader extends StatelessWidget {
             child: Text(
               action!,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 13,
                 color: context.textSecondary,
                 fontWeight: FontWeight.w500,
               ),
@@ -762,19 +790,19 @@ class _DocItem extends StatelessWidget {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(
             children: [
               Container(
-                width: 34,
-                height: 34,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
                   color: iconColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(icon, size: 16, color: iconColor),
+                child: Icon(icon, size: 20, color: iconColor),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -782,17 +810,17 @@ class _DocItem extends StatelessWidget {
                     Text(
                       name,
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 15,
                         fontWeight: FontWeight.w500,
                         color: context.textPrimary,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 3),
                     Text(
                       meta,
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 13,
                         color: context.textSecondary,
                       ),
                     ),
@@ -801,15 +829,15 @@ class _DocItem extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: statusColor.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(5),
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   status,
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: statusColor,
                   ),
@@ -851,22 +879,22 @@ class _ActivityItem extends StatelessWidget {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: const EdgeInsets.only(top: 5),
+                padding: const EdgeInsets.only(top: 6),
                 child: Container(
-                  width: 7,
-                  height: 7,
+                  width: 9,
+                  height: 9,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: dotColor,
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -874,16 +902,16 @@ class _ActivityItem extends StatelessWidget {
                     Text(
                       text,
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 15,
                         color: context.textPrimary,
                         height: 1.4,
                       ),
                     ),
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 4),
                     Text(
                       time,
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 13,
                         color: context.textSecondary,
                       ),
                     ),
@@ -930,27 +958,24 @@ class _QuotaRow extends StatelessWidget {
           children: [
             Text(
               label,
-              style: TextStyle(
-                fontSize: 12,
-                color: context.textSecondary,
-              ),
+              style: TextStyle(fontSize: 14, color: context.textSecondary),
             ),
             Text(
               value,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 14,
                 fontWeight: FontWeight.w500,
                 color: context.textPrimary,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 7),
+        const SizedBox(height: 8),
         ClipRRect(
-          borderRadius: BorderRadius.circular(3),
+          borderRadius: BorderRadius.circular(4),
           child: LinearProgressIndicator(
             value: fraction,
-            minHeight: 4,
+            minHeight: 6,
             backgroundColor: context.progressBg,
             valueColor: AlwaysStoppedAnimation<Color>(color),
           ),
@@ -975,7 +1000,7 @@ class _WeeklyBarChart extends StatelessWidget {
     final chartValues = values.length == 7 ? values : List.filled(7, 0.0);
 
     return SizedBox(
-      height: 72,
+      height: 84,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: List.generate(days.length, (i) {
@@ -987,12 +1012,10 @@ class _WeeklyBarChart extends StatelessWidget {
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 400),
                   curve: Curves.easeOut,
-                  height: 48 * chartValues[i],
+                  height: 56 * chartValues[i],
                   margin: const EdgeInsets.symmetric(horizontal: 3),
                   decoration: BoxDecoration(
-                    color: isToday
-                        ? activeColor
-                        : context.progressBg,
+                    color: isToday ? activeColor : context.progressBg,
                     borderRadius: BorderRadius.circular(4),
                     border: Border.all(
                       color: isToday
@@ -1006,7 +1029,7 @@ class _WeeklyBarChart extends StatelessWidget {
                 Text(
                   days[i],
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: 12,
                     color: isToday ? activeColor : context.textSecondary,
                     fontWeight: isToday ? FontWeight.w600 : FontWeight.w400,
                   ),

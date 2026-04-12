@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme_provider.dart';
 
 class HoverIcon extends StatefulWidget {
   final IconData icon;
@@ -21,6 +22,10 @@ class _HoverIconState extends State<HoverIcon> {
 
   @override
   Widget build(BuildContext context) {
+    final iconColor = hovering
+        ? const Color(0xFFD4AF6A)
+        : context.textPrimary;
+
     return Tooltip(
       message: widget.tooltip,
       child: MouseRegion(
@@ -30,11 +35,13 @@ class _HoverIconState extends State<HoverIcon> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 120),
           decoration: BoxDecoration(
-            color: hovering ? Colors.white.withOpacity(0.15) : Colors.transparent,
+            color: hovering
+                ? const Color(0xFFD4AF6A).withOpacity(0.1)
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
           ),
           child: IconButton(
-            icon: Icon(widget.icon, color: Colors.white),
+            icon: Icon(widget.icon, color: iconColor, size: 22),
             onPressed: widget.onTap,
           ),
         ),
