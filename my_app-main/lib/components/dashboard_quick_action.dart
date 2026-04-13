@@ -25,7 +25,7 @@ class DashboardQuickAction extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(14),
-        splashColor: color.withOpacity(0.08),
+        splashColor: color.withValues(alpha: 0.08),
         highlightColor: Colors.transparent,
         child: Container(
           padding: const EdgeInsets.all(16),
@@ -39,7 +39,7 @@ class DashboardQuickAction extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.12),
+                  color: color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(icon, size: 22, color: color),

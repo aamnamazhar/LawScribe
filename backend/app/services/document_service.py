@@ -27,14 +27,23 @@ def _safe_extension(filename: str | None) -> str:
 
 
 def save_document(file):
-    file_bytes = file.file.read()
+    # Read in chunks to avoid loading oversized files fully into memory
+    chunks = []
+    total = 0
+    while True:
+        chunk = file.file.read(1024 * 1024)  # 1 MB at a time
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > MAX_UPLOAD_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File exceeds max size of {MAX_UPLOAD_BYTES} bytes",
+            )
+        chunks.append(chunk)
+    file_bytes = b"".join(chunks)
     if not file_bytes:
         raise HTTPException(status_code=400, detail="Empty upload")
-    if len(file_bytes) > MAX_UPLOAD_BYTES:
-        raise HTTPException(
-            status_code=413,
-            detail=f"File exceeds max size of {MAX_UPLOAD_BYTES} bytes",
-        )
 
     ext = _safe_extension(file.filename)
     file_hash = generate_file_hash(file_bytes)

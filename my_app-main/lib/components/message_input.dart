@@ -6,7 +6,7 @@ import '../theme_provider.dart';
 
 class MessageInputBar extends StatefulWidget {
   final void Function(String, PlatformFile?, String?) onSend;
-  const MessageInputBar({Key? key, required this.onSend}) : super(key: key);
+  const MessageInputBar({super.key, required this.onSend});
 
   @override
   State<MessageInputBar> createState() => _MessageInputBarState();
@@ -96,7 +96,7 @@ class _MessageInputBarState extends State<MessageInputBar> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
           side: BorderSide(
-            color: const Color(0xFFD4AF6A).withOpacity(0.25),
+            color: const Color(0xFFD4AF6A).withValues(alpha: 0.25),
             width: 1,
           ),
         ),
@@ -105,10 +105,10 @@ class _MessageInputBarState extends State<MessageInputBar> {
     );
   }
 
-  KeyEventResult _handleKeyPress(FocusNode node, RawKeyEvent event) {
-    if (event is RawKeyDownEvent &&
+  KeyEventResult _handleKeyPress(FocusNode node, KeyEvent event) {
+    if (event is KeyDownEvent &&
         event.logicalKey == LogicalKeyboardKey.enter) {
-      if (event.isShiftPressed) return KeyEventResult.ignored;
+      if (HardwareKeyboard.instance.isShiftPressed) return KeyEventResult.ignored;
       _sendMessage();
       return KeyEventResult.handled;
     }
@@ -174,7 +174,7 @@ class _MessageInputBarState extends State<MessageInputBar> {
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
                   color: _focusNode.hasFocus
-                      ? const Color(0xFFD4AF6A).withOpacity(0.4)
+                      ? const Color(0xFFD4AF6A).withValues(alpha: 0.4)
                       : context.borderColor,
                   width: 1,
                 ),
@@ -193,7 +193,7 @@ class _MessageInputBarState extends State<MessageInputBar> {
                   Expanded(
                     child: Focus(
                       focusNode: _focusNode,
-                      onKey: _handleKeyPress,
+                      onKeyEvent: _handleKeyPress,
                       child: TextField(
                         controller: _controller,
                         minLines: 1,
@@ -256,7 +256,7 @@ class _MessageInputBarState extends State<MessageInputBar> {
                       boxShadow: _hasText
                           ? [
                               BoxShadow(
-                                color: const Color(0xFFD4AF6A).withOpacity(0.3),
+                                color: const Color(0xFFD4AF6A).withValues(alpha: 0.3),
                                 blurRadius: 12,
                                 offset: const Offset(0, 3),
                               ),
@@ -348,7 +348,7 @@ class _InputIconButtonState extends State<_InputIconButton> {
             margin: const EdgeInsets.symmetric(horizontal: 2),
             decoration: BoxDecoration(
               color: isHighlighted
-                  ? const Color(0xFFD4AF6A).withOpacity(0.1)
+                  ? const Color(0xFFD4AF6A).withValues(alpha: 0.1)
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(10),
             ),

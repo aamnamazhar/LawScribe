@@ -36,7 +36,7 @@ class _HoverIconState extends State<HoverIcon> {
           duration: const Duration(milliseconds: 120),
           decoration: BoxDecoration(
             color: hovering
-                ? const Color(0xFFD4AF6A).withOpacity(0.1)
+                ? const Color(0xFFD4AF6A).withValues(alpha: 0.1)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
           ),

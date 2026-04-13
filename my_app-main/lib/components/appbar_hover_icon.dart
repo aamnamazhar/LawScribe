@@ -30,7 +30,7 @@ class _AppBarHoverIconState extends State<AppBarHoverIcon> {
         margin: const EdgeInsets.symmetric(horizontal: 4),
         decoration: BoxDecoration(
           color: _hovering
-              ? Theme.of(context).dividerColor.withOpacity(0.12)
+              ? Theme.of(context).dividerColor.withValues(alpha: 0.12)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
         ),

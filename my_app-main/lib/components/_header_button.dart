@@ -8,12 +8,12 @@ class HeaderButton extends StatelessWidget {
   final bool isMobile;
 
   const HeaderButton({
-    Key? key,
+    super.key,
     required this.icon,
     required this.label,
     required this.onTap,
     this.isMobile = false,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +23,7 @@ class HeaderButton extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 6),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: context.textPrimary.withOpacity(0.08),
+          color: context.textPrimary.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Row(

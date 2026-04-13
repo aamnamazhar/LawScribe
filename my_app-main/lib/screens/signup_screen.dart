@@ -48,26 +48,45 @@ class _SignupScreenState extends State<SignupScreen>
     super.dispose();
   }
 
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message, style: TextStyle(color: context.textPrimary)),
+        backgroundColor: context.popupColor,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
   Future<void> _signup() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+    final confirm = _confirmController.text.trim();
+
+    if (email.isEmpty) {
+      _showError('Please enter your email address.');
+      return;
+    }
+    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
+      _showError('Please enter a valid email address.');
+      return;
+    }
+    if (password.isEmpty) {
+      _showError('Please enter a password.');
+      return;
+    }
+    if (password.length < 6) {
+      _showError('Password must be at least 6 characters.');
+      return;
+    }
+    if (password != confirm) {
+      _showError('Passwords do not match.');
+      return;
+    }
+
     setState(() => _loading = true);
     try {
-      if (_passwordController.text.trim() != _confirmController.text.trim()) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Passwords do not match',
-              style: TextStyle(color: context.textPrimary),
-            ),
-            backgroundColor: context.popupColor,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        );
-        return;
-      }
-
       await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
@@ -135,7 +154,7 @@ class _SignupScreenState extends State<SignupScreen>
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    const Color(0xFF7B5EA7).withOpacity(0.25),
+                    const Color(0xFF7B5EA7).withValues(alpha: 0.25),
                     Colors.transparent,
                   ],
                 ),
@@ -154,7 +173,7 @@ class _SignupScreenState extends State<SignupScreen>
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    const Color(0xFFC9A84C).withOpacity(0.18),
+                    const Color(0xFFC9A84C).withValues(alpha: 0.18),
                     Colors.transparent,
                   ],
                 ),
@@ -187,7 +206,7 @@ class _SignupScreenState extends State<SignupScreen>
                             ),
                             decoration: BoxDecoration(
                               color: context.isDark
-                                  ? Colors.white.withOpacity(0.04)
+                                  ? Colors.white.withValues(alpha: 0.04)
                                   : Colors.white,
                               borderRadius: BorderRadius.circular(28),
                               border: Border.all(
@@ -225,7 +244,7 @@ class _SignupScreenState extends State<SignupScreen>
                                       BoxShadow(
                                         color: const Color(
                                           0xFFD4AF6A,
-                                        ).withOpacity(0.35),
+                                        ).withValues(alpha: 0.35),
                                         blurRadius: 16,
                                         offset: const Offset(0, 4),
                                       ),
@@ -358,7 +377,7 @@ class _SignupScreenState extends State<SignupScreen>
                                                 BoxShadow(
                                                   color: const Color(
                                                     0xFFD4AF6A,
-                                                  ).withOpacity(0.35),
+                                                  ).withValues(alpha: 0.35),
                                                   blurRadius: 24,
                                                   offset: const Offset(0, 8),
                                                 ),
@@ -497,8 +516,8 @@ class _SignupScreenState extends State<SignupScreen>
         ),
         filled: true,
         fillColor: context.isDark
-            ? Colors.white.withOpacity(0.06)
-            : Colors.black.withOpacity(0.04),
+            ? Colors.white.withValues(alpha: 0.06)
+            : Colors.black.withValues(alpha: 0.04),
         contentPadding: const EdgeInsets.symmetric(
           vertical: 16,
           horizontal: 16,

@@ -69,11 +69,11 @@ extension AppTheme on BuildContext {
 
   /// Subtle border
   Color get borderColor =>
-      isDark ? Colors.white.withOpacity(0.07) : Colors.black.withOpacity(0.08);
+      isDark ? Colors.white.withValues(alpha: 0.07) : Colors.black.withValues(alpha: 0.08);
 
   /// Thin divider line
   Color get dividerColor =>
-      isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.06);
+      isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.06);
 
   /// Primary text
   Color get textPrimary =>
@@ -81,13 +81,13 @@ extension AppTheme on BuildContext {
 
   /// Secondary / muted text
   Color get textSecondary =>
-      isDark ? Colors.white.withOpacity(0.4) : Colors.black.withOpacity(0.45);
+      isDark ? Colors.white.withValues(alpha: 0.4) : Colors.black.withValues(alpha: 0.45);
 
   /// Hint / placeholder text
   Color get textHint =>
-      isDark ? Colors.white.withOpacity(0.22) : Colors.black.withOpacity(0.28);
+      isDark ? Colors.white.withValues(alpha: 0.22) : Colors.black.withValues(alpha: 0.28);
 
   /// Progress bar / spinner track background
   Color get progressBg =>
-      isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.08);
+      isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.08);
 }

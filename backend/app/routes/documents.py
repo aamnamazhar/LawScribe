@@ -15,6 +15,10 @@ def upload_document(
     authorization: Optional[str] = Header(None),
 ):
     uid = get_uid(authorization)
+    if not uid:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=401, detail="Authentication required")
+
     result = save_document(file)
 
     doc_id = result["hash"]
@@ -29,7 +33,7 @@ def upload_document(
         result["index_error"] = str(e)
 
     # Log hash to blockchain (non-blocking)
-    tx_hash = store_document_hash(doc_id, uid or "anonymous", result["hash"])
+    tx_hash = store_document_hash(doc_id, uid, result["hash"])
     if tx_hash:
         result["blockchain_tx"] = tx_hash
 

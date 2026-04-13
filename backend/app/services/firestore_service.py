@@ -40,9 +40,10 @@ def on_document_uploaded(uid: str, filename: str, file_hash: str, file_size_byte
 
     try:
         user_ref = db.collection("users").document(uid)
+        batch = db.batch()
 
         # 1. Add document to user's documents subcollection (dashboard recent docs)
-        user_ref.collection("documents").document(file_hash).set({
+        batch.set(user_ref.collection("documents").document(file_hash), {
             "name": filename,
             "sizeKb": file_size_bytes // 1024,
             "status": "uploaded",
@@ -52,23 +53,26 @@ def on_document_uploaded(uid: str, filename: str, file_hash: str, file_size_byte
         })
 
         # 2. Increment user stats (dashboard stat cards)
-        user_ref.collection("stats").document("summary").set({
+        batch.set(user_ref.collection("stats").document("summary"), {
             "totalDocs": _inc(1),
             "docsThisWeek": _inc(1),
         }, merge=True)
 
         # 3. Log activity (dashboard activity feed)
-        user_ref.collection("activity").add({
+        activity_ref = user_ref.collection("activity").document()
+        batch.set(activity_ref, {
             "text": f"Uploaded {filename}",
             "time": now,
             "type": "upload",
         })
 
         # 4. Increment today's bar on weekly chart
-        user_ref.collection("weeklyUsage").document(str(today_weekday)).set({
+        batch.set(user_ref.collection("weeklyUsage").document(str(today_weekday)), {
             "day": today_weekday,
             "count": _inc(1),
         }, merge=True)
+
+        batch.commit()
 
     except Exception as e:
         print(f"[Firestore] on_document_uploaded error: {e}")
@@ -87,26 +91,30 @@ def on_ai_query(uid: str, question: str):
 
     try:
         user_ref = db.collection("users").document(uid)
+        batch = db.batch()
 
         # Increment totalChats + aiResponses
-        user_ref.collection("stats").document("summary").set({
+        batch.set(user_ref.collection("stats").document("summary"), {
             "totalChats": _inc(1),
             "aiResponses": _inc(1),
         }, merge=True)
 
         # Log activity
         preview = question[:60] + ("..." if len(question) > 60 else "")
-        user_ref.collection("activity").add({
+        activity_ref = user_ref.collection("activity").document()
+        batch.set(activity_ref, {
             "text": f"Asked: {preview}",
             "time": now,
             "type": "chat",
         })
 
         # Weekly chart
-        user_ref.collection("weeklyUsage").document(str(today_weekday)).set({
+        batch.set(user_ref.collection("weeklyUsage").document(str(today_weekday)), {
             "day": today_weekday,
             "count": _inc(1),
         }, merge=True)
+
+        batch.commit()
 
     except Exception as e:
         print(f"[Firestore] on_ai_query error: {e}")

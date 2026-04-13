@@ -38,7 +38,7 @@ class DashboardStatCard extends StatelessWidget {
               width: 34,
               height: 34,
               decoration: BoxDecoration(
-                color: color.withOpacity(0.12),
+                color: color.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(9),
               ),
               child: Icon(icon, size: 18, color: color),
@@ -79,7 +79,7 @@ class DashboardStatCard extends StatelessWidget {
                     delta!,
                     style: TextStyle(
                       fontSize: 12,
-                      color: color.withOpacity(0.85),
+                      color: color.withValues(alpha: 0.85),
                       fontWeight: FontWeight.w500,
                     ),
                   ),

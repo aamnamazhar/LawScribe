@@ -26,7 +26,7 @@ if not GROQ_API_KEY:
     raise RuntimeError(
         "GROQ_API_KEY is not set. Add it to your environment or .env file."
     )
-client = Groq(api_key=GROQ_API_KEY)
+client = Groq(api_key=GROQ_API_KEY, timeout=60.0)
 
 
 def index_document(file_path, doc_id):

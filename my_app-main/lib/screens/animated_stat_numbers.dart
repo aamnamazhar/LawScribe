@@ -54,7 +54,7 @@ class _AnimatedStatNumberState extends State<AnimatedStatNumber>
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _animation,
-      builder: (_, __) {
+      builder: (_, _) {
         return Text(
           '${_formatNumber(_animation.value)}${widget.suffix}',
           style: widget.style,

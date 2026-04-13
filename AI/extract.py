@@ -4,10 +4,35 @@ import os
 
 
 def extract_from_pdf(file_path):
-    text = ""
+    """Extract text from PDF. Falls back to OCR for scanned/image-based pages."""
     doc = fitz.open(file_path)
-    for page in doc:
-        text += page.get_text()
+    text = ""
+    ocr_pages = []
+
+    for i, page in enumerate(doc):
+        page_text = page.get_text()
+        if page_text.strip():
+            text += page_text
+        else:
+            ocr_pages.append(i)
+
+    # If some pages had no extractable text, try OCR
+    if ocr_pages:
+        try:
+            import pytesseract
+            from PIL import Image
+            import io
+
+            for i in ocr_pages:
+                page = doc[i]
+                pix = page.get_pixmap(dpi=300)
+                img = Image.open(io.BytesIO(pix.tobytes("png")))
+                page_text = pytesseract.image_to_string(img)
+                text += page_text
+        except ImportError:
+            # pytesseract not installed — skip OCR silently
+            pass
+
     return text
 
 

@@ -90,7 +90,7 @@ class _SplashScreenState extends State<SplashScreen>
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    const Color(0xFF7B5EA7).withOpacity(0.30),
+                    const Color(0xFF7B5EA7).withValues(alpha: 0.30),
                     Colors.transparent,
                   ],
                 ),
@@ -109,7 +109,7 @@ class _SplashScreenState extends State<SplashScreen>
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    const Color(0xFFC9A84C).withOpacity(0.20),
+                    const Color(0xFFC9A84C).withValues(alpha: 0.20),
                     Colors.transparent,
                   ],
                 ),
@@ -126,7 +126,7 @@ class _SplashScreenState extends State<SplashScreen>
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    const Color(0xFF7B5EA7).withOpacity(0.12),
+                    const Color(0xFF7B5EA7).withValues(alpha: 0.12),
                     Colors.transparent,
                   ],
                 ),
@@ -161,14 +161,14 @@ class _SplashScreenState extends State<SplashScreen>
                               BoxShadow(
                                 color: const Color(
                                   0xFFD4AF6A,
-                                ).withOpacity(0.40),
+                                ).withValues(alpha: 0.40),
                                 blurRadius: 32,
                                 offset: const Offset(0, 8),
                               ),
                               BoxShadow(
                                 color: const Color(
                                   0xFFD4AF6A,
-                                ).withOpacity(0.15),
+                                ).withValues(alpha: 0.15),
                                 blurRadius: 60,
                                 spreadRadius: 4,
                               ),
@@ -193,7 +193,7 @@ class _SplashScreenState extends State<SplashScreen>
                           'Your AI Legal Assistant',
                           style: TextStyle(
                             fontSize: 14,
-                            color: Colors.white.withOpacity(0.40),
+                            color: Colors.white.withValues(alpha: 0.40),
                             letterSpacing: 1.2,
                             fontWeight: FontWeight.w400,
                           ),
@@ -209,7 +209,7 @@ class _SplashScreenState extends State<SplashScreen>
                             child: LinearProgressIndicator(
                               value: _progressAnim.value,
                               minHeight: 2,
-                              backgroundColor: Colors.white.withOpacity(0.08),
+                              backgroundColor: Colors.white.withValues(alpha: 0.08),
                               valueColor: const AlwaysStoppedAnimation<Color>(
                                 Color(0xFFD4AF6A),
                               ),
@@ -236,7 +236,7 @@ class _SplashScreenState extends State<SplashScreen>
                   'v1.0.0',
                   style: TextStyle(
                     fontSize: 11,
-                    color: Colors.white.withOpacity(0.18),
+                    color: Colors.white.withValues(alpha: 0.18),
                     letterSpacing: 1.4,
                   ),
                 ),

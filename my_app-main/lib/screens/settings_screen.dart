@@ -4,7 +4,7 @@ import '../theme_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
   final bool asDrawer;
-  const SettingsScreen({Key? key, this.asDrawer = false}) : super(key: key);
+  const SettingsScreen({super.key, this.asDrawer = false});
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -200,7 +200,7 @@ class _SettingsScreenState extends State<SettingsScreen>
               shape: BoxShape.circle,
               gradient: RadialGradient(
                 colors: [
-                  const Color(0xFF7B5EA7).withOpacity(0.18),
+                  const Color(0xFF7B5EA7).withValues(alpha: 0.18),
                   Colors.transparent,
                 ],
               ),
@@ -219,7 +219,7 @@ class _SettingsScreenState extends State<SettingsScreen>
               shape: BoxShape.circle,
               gradient: RadialGradient(
                 colors: [
-                  const Color(0xFFC9A84C).withOpacity(0.14),
+                  const Color(0xFFC9A84C).withValues(alpha: 0.14),
                   Colors.transparent,
                 ],
               ),
@@ -249,7 +249,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                       border: Border.all(color: context.borderColor, width: 1),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
+                          color: Colors.black.withValues(alpha: 0.1),
                           blurRadius: 24,
                           offset: const Offset(0, 8),
                         ),
@@ -271,7 +271,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                               BoxShadow(
                                 color: const Color(
                                   0xFFD4AF6A,
-                                ).withOpacity(0.30),
+                                ).withValues(alpha: 0.30),
                                 blurRadius: 14,
                                 offset: const Offset(0, 4),
                               ),
@@ -326,10 +326,10 @@ class _SettingsScreenState extends State<SettingsScreen>
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF4CAF82).withOpacity(0.12),
+                            color: const Color(0xFF4CAF82).withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                              color: const Color(0xFF4CAF82).withOpacity(0.3),
+                              color: const Color(0xFF4CAF82).withValues(alpha: 0.3),
                               width: 1,
                             ),
                           ),
@@ -377,7 +377,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                   _sectionTitle('Appearance'),
                   ValueListenableBuilder<ThemeMode>(
                     valueListenable: themeNotifier,
-                    builder: (_, mode, __) {
+                    builder: (_, mode, _) {
                       return _settingsTile(
                         icon: mode == ThemeMode.light
                             ? Icons.light_mode_outlined
@@ -388,6 +388,20 @@ class _SettingsScreenState extends State<SettingsScreen>
                         subtitle: 'Switch app theme',
                         onTap: toggleTheme,
                       );
+                    },
+                  ),
+
+                  const SizedBox(height: 28),
+
+                  // ================= BLOCKCHAIN =================
+                  _sectionTitle('Blockchain'),
+                  _settingsTile(
+                    icon: Icons.verified_outlined,
+                    title: 'Verify Document',
+                    subtitle: 'Check document integrity on-chain',
+                    onTap: () {
+                      if (widget.asDrawer) Navigator.pop(context);
+                      Navigator.pushNamed(context, '/verify');
                     },
                   ),
 
@@ -453,7 +467,7 @@ class _SettingsScreenState extends State<SettingsScreen>
               ),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF7B5EA7).withOpacity(0.08),
+                  color: const Color(0xFF7B5EA7).withValues(alpha: 0.08),
                   blurRadius: 24,
                   offset: const Offset(0, 4),
                 ),
@@ -529,7 +543,7 @@ class _SettingsScreenState extends State<SettingsScreen>
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: isDanger
-              ? Colors.redAccent.withOpacity(0.15)
+              ? Colors.redAccent.withValues(alpha: 0.15)
               : context.borderColor,
           width: 1,
         ),
@@ -541,8 +555,8 @@ class _SettingsScreenState extends State<SettingsScreen>
           onTap: onTap,
           borderRadius: BorderRadius.circular(14),
           splashColor: isDanger
-              ? Colors.redAccent.withOpacity(0.08)
-              : const Color(0xFFD4AF6A).withOpacity(0.06),
+              ? Colors.redAccent.withValues(alpha: 0.08)
+              : const Color(0xFFD4AF6A).withValues(alpha: 0.06),
           highlightColor: Colors.transparent,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -554,16 +568,16 @@ class _SettingsScreenState extends State<SettingsScreen>
                   height: 38,
                   decoration: BoxDecoration(
                     color: isDanger
-                        ? Colors.redAccent.withOpacity(0.10)
-                        : const Color(0xFF7B5EA7).withOpacity(0.12),
+                        ? Colors.redAccent.withValues(alpha: 0.10)
+                        : const Color(0xFF7B5EA7).withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
                     icon,
                     size: 19,
                     color: isDanger
-                        ? Colors.redAccent.withOpacity(0.85)
-                        : const Color(0xFFD4AF6A).withOpacity(0.85),
+                        ? Colors.redAccent.withValues(alpha: 0.85)
+                        : const Color(0xFFD4AF6A).withValues(alpha: 0.85),
                   ),
                 ),
 
@@ -579,7 +593,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                           fontWeight: FontWeight.w600,
                           fontSize: 14,
                           color: isDanger
-                              ? Colors.redAccent.withOpacity(0.85)
+                              ? Colors.redAccent.withValues(alpha: 0.85)
                               : context.textPrimary,
                         ),
                       ),

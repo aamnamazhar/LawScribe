@@ -12,3 +12,5 @@ sentence-transformers
 torch
 transformers
 web3
+pytesseract
+Pillow

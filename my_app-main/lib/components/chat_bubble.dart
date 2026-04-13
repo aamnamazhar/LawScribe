@@ -17,7 +17,7 @@ class ChatBubble extends StatelessWidget {
   final VoidCallback? onShare;
 
   const ChatBubble({
-    Key? key,
+    super.key,
     required this.isUser,
     required this.label,
     this.message,
@@ -30,7 +30,7 @@ class ChatBubble extends StatelessWidget {
     this.onEdit,
     this.onDislike,
     this.onShare,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -77,15 +77,15 @@ class ChatBubble extends StatelessWidget {
                     ),
                     border: Border.all(
                       color: isUser
-                          ? const Color(0xFF7B5EA7).withOpacity(0.35)
+                          ? const Color(0xFF7B5EA7).withValues(alpha: 0.35)
                           : context.borderColor,
                       width: 1,
                     ),
                     boxShadow: [
                       BoxShadow(
                         color: isUser
-                            ? const Color(0xFF7B5EA7).withOpacity(0.12)
-                            : Colors.black.withOpacity(0.2),
+                            ? const Color(0xFF7B5EA7).withValues(alpha: 0.12)
+                            : Colors.black.withValues(alpha: 0.2),
                         blurRadius: 12,
                         offset: const Offset(0, 4),
                       ),
@@ -133,7 +133,7 @@ class ChatBubble extends StatelessWidget {
                               child: Icon(
                                 Icons.done_all,
                                 size: 13,
-                                color: const Color(0xFFD4AF6A).withOpacity(0.7),
+                                color: const Color(0xFFD4AF6A).withValues(alpha: 0.7),
                               ),
                             ),
                         ],
@@ -225,7 +225,7 @@ class _Avatar extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: (isUser ? const Color(0xFF7B5EA7) : const Color(0xFFD4AF6A))
-                .withOpacity(0.3),
+                .withValues(alpha: 0.3),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -271,8 +271,8 @@ class _FileBubble extends StatelessWidget {
             height: 32,
             decoration: BoxDecoration(
               color: isPdf
-                  ? const Color(0xFFD4AF6A).withOpacity(0.12)
-                  : const Color(0xFF4A90D9).withOpacity(0.12),
+                  ? const Color(0xFFD4AF6A).withValues(alpha: 0.12)
+                  : const Color(0xFF4A90D9).withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
@@ -366,7 +366,7 @@ class _TypingIndicatorState extends State<_TypingIndicator>
               margin: EdgeInsets.only(right: i < 2 ? 5 : 0),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFFD4AF6A).withOpacity(opacity),
+                color: const Color(0xFFD4AF6A).withValues(alpha: opacity),
               ),
             );
           }),

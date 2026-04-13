@@ -5,13 +5,16 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 class ApiService {
   // Backend URL. Override at run time with:
-  //   flutter run --dart-define=BACKEND_URL=https://your-tunnel.trycloudflare.com
-  // The default 10.0.2.2 is the special alias the Android emulator uses to
-  // reach "localhost" on the host machine — works for emulator dev only.
+  //   flutter run --dart-define=BACKEND_URL=https://your-production-url.com
+  // IMPORTANT: Use HTTPS in production for SRS compliance (S2).
+  // The HTTP default below is for local development only.
   static const String baseUrl = String.fromEnvironment(
     "BACKEND_URL",
-    defaultValue: "http://10.0.2.2:8000",
+    defaultValue: "http://192.168.1.9:8000",
   );
+
+  static const _timeout = Duration(seconds: 30);
+  static const _uploadTimeout = Duration(seconds: 120);
 
   // ── Auth header ───────────────────────────────────────────────────────────
 
@@ -39,7 +42,7 @@ class ApiService {
       request.headers['Authorization'] = 'Bearer $token';
     }
 
-    return await request.send();
+    return await request.send().timeout(_uploadTimeout);
   }
 
   // ── Summary ───────────────────────────────────────────────────────────────
@@ -49,7 +52,7 @@ class ApiService {
       "$baseUrl/ai/summary?doc_id=${Uri.encodeComponent(docId)}",
     );
     final headers = await _authHeaders();
-    final response = await http.get(uri, headers: headers);
+    final response = await http.get(uri, headers: headers).timeout(_timeout);
     if (response.statusCode == 200) {
       return jsonDecode(response.body)["summary"];
     }
@@ -65,7 +68,7 @@ class ApiService {
       uri,
       headers: headers,
       body: jsonEncode({"doc_id": docId, "question": question}),
-    );
+    ).timeout(_timeout);
     if (response.statusCode == 200) {
       return jsonDecode(response.body)["answer"];
     }
@@ -81,7 +84,7 @@ class ApiService {
       uri,
       headers: headers,
       body: jsonEncode({"doc_id": docId}),
-    );
+    ).timeout(_timeout);
     if (response.statusCode == 200) {
       return jsonDecode(response.body)["clauses"];
     }
@@ -97,7 +100,7 @@ class ApiService {
       uri,
       headers: headers,
       body: jsonEncode({"doc_id": docId}),
-    );
+    ).timeout(_timeout);
     if (response.statusCode == 200) {
       return jsonDecode(response.body)["insights"];
     }
@@ -177,7 +180,7 @@ class ApiService {
       "$baseUrl/ai/verify?doc_id=${Uri.encodeComponent(docId)}&file_hash=${Uri.encodeComponent(fileHash)}",
     );
     final headers = await _authHeaders();
-    final response = await http.get(uri, headers: headers);
+    final response = await http.get(uri, headers: headers).timeout(_timeout);
     if (response.statusCode == 200) {
       return jsonDecode(response.body)["verified"] as bool;
     }

@@ -11,6 +11,7 @@ import '../components/hover_icon.dart';
 import '../theme_provider.dart';
 import '../screens/dashboard_screen.dart';
 import '../screens/settings_screen.dart';
+import '../screens/blockchain_verify_screen.dart';
 
 // ── Layman-friendly clause metadata ─────────────────────────────────────────
 //
@@ -100,7 +101,7 @@ const List<String> _categoryOrder = [
 ];
 
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({Key? key}) : super(key: key);
+  const ChatScreen({super.key});
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -112,13 +113,20 @@ class _ChatScreenState extends State<ChatScreen> {
   bool isTyping = false;
   String? currentDocumentPath;
   String? currentDocId;
+  String? currentBlockchainTx;
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   final List<Map<String, dynamic>> messages = [
     {
       'sender': 'ai',
       'type': 'text',
       'text':
-          'Hello! I\'m LawScribe AI ⚖️. Upload a legal document or ask me anything about contracts, clauses, or legal terms.',
+          'Hello! I\'m LawScribe AI ⚖️. Upload a legal document or ask me anything about contracts, clauses, or legal terms.\n\nNote: AI-generated analysis is for informational purposes only and does not constitute legal advice.',
       'time': '10:00 AM',
     },
   ];
@@ -165,6 +173,7 @@ class _ChatScreenState extends State<ChatScreen> {
           final data = jsonDecode(responseBody);
           currentDocumentPath = data["file"]["path"];
           currentDocId = data["file"]["hash"];
+          currentBlockchainTx = data["file"]["blockchain_tx"];
 
           setState(() {
             isTyping = false;
@@ -176,6 +185,9 @@ class _ChatScreenState extends State<ChatScreen> {
                   'How can I help you with it?\n'
                   'Try: summarize, detect clauses, or ask any question about the document.',
               'time': _formatTime(DateTime.now()),
+              'showVerify': true,
+              'docId': currentDocId,
+              'blockchainTx': currentBlockchainTx,
             });
           });
         } else {
@@ -255,13 +267,14 @@ class _ChatScreenState extends State<ChatScreen> {
         });
 
         await for (final token in stream) {
-          if (!mounted) return;
+          if (!mounted) break;
           setState(() {
             messages[msgIndex]['text'] =
                 (messages[msgIndex]['text'] as String) + token;
           });
           _scrollToBottom();
         }
+        if (!mounted) return;
 
         _scrollToBottom();
         return;
@@ -454,7 +467,7 @@ class _ChatScreenState extends State<ChatScreen> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
           side: BorderSide(
-            color: const Color(0xFF6BCB77).withOpacity(0.3),
+            color: const Color(0xFF6BCB77).withValues(alpha: 0.3),
             width: 1,
           ),
         ),
@@ -488,7 +501,7 @@ class _ChatScreenState extends State<ChatScreen> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
           side: BorderSide(
-            color: const Color(0xFFD4AF6A).withOpacity(0.25),
+            color: const Color(0xFFD4AF6A).withValues(alpha: 0.25),
             width: 1,
           ),
         ),
@@ -529,7 +542,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 style: TextStyle(color: context.textPrimary, fontSize: 14),
                 decoration: InputDecoration(
                   filled: true,
-                  fillColor: context.isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.04),
+                  fillColor: context.isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.04),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(
@@ -585,7 +598,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         borderRadius: BorderRadius.circular(10),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFFD4AF6A).withOpacity(0.3),
+                            color: const Color(0xFFD4AF6A).withValues(alpha: 0.3),
                             blurRadius: 12,
                             offset: const Offset(0, 4),
                           ),
@@ -632,7 +645,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 borderRadius: BorderRadius.circular(22),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFD4AF6A).withOpacity(0.3),
+                    color: const Color(0xFFD4AF6A).withValues(alpha: 0.3),
                     blurRadius: 24,
                     offset: const Offset(0, 8),
                   ),
@@ -715,7 +728,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    const Color(0xFF7B5EA7).withOpacity(0.15),
+                    const Color(0xFF7B5EA7).withValues(alpha: 0.15),
                     Colors.transparent,
                   ],
                 ),
@@ -733,7 +746,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    const Color(0xFFC9A84C).withOpacity(0.10),
+                    const Color(0xFFC9A84C).withValues(alpha: 0.10),
                     Colors.transparent,
                   ],
                 ),
@@ -765,7 +778,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
                           final msg = messages[index];
 
-                          return ChatBubble(
+                          final bubble = ChatBubble(
                             isUser: msg['sender'] == 'user',
                             label: msg['sender'] == 'user'
                                 ? currentUserName[0].toUpperCase()
@@ -794,6 +807,52 @@ class _ChatScreenState extends State<ChatScreen> {
                                     _showInfoSnackbar('Share coming soon.')
                                 : null,
                           );
+
+                          if (msg['showVerify'] == true && msg['docId'] != null) {
+                            final msgDocId = msg['docId'] as String;
+                            final msgTx = msg['blockchainTx'] as String?;
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                bubble,
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 14, bottom: 12),
+                                  child: TextButton.icon(
+                                    onPressed: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => BlockchainVerifyScreen(
+                                            docId: msgDocId,
+                                            fileHash: msgDocId,
+                                            blockchainTx: msgTx,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    icon: const Icon(Icons.verified_outlined, size: 16, color: Color(0xFFD4AF6A)),
+                                    label: const Text(
+                                      'Verify on Blockchain',
+                                      style: TextStyle(
+                                        color: Color(0xFFD4AF6A),
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    style: TextButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                        side: BorderSide(color: const Color(0xFFD4AF6A).withAlpha(60)),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          }
+
+                          return bubble;
                         },
                       ),
               ),
@@ -824,7 +883,7 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF7B5EA7).withOpacity(0.12),
+                color: const Color(0xFF7B5EA7).withValues(alpha: 0.12),
                 blurRadius: 24,
                 offset: const Offset(0, 4),
               ),

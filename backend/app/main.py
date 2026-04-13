@@ -24,11 +24,11 @@ if _allowed_origins:
         allow_headers=["*"],
     )
 else:
-    # No origins configured — fall back to fully-open CORS without credentials.
+    # No origins configured — allow only localhost for development.
     # Set CORS_ALLOWED_ORIGINS in production.
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=["http://localhost:3000", "http://localhost:8080"],
         allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],

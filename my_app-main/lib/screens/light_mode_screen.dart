@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class LightModeScreen extends StatelessWidget {
-  const LightModeScreen({Key? key}) : super(key: key);
+  const LightModeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {

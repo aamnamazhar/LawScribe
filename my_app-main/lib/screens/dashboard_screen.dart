@@ -135,61 +135,77 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final _auth = FirebaseAuth.instance;
   final _db = FirebaseFirestore.instance;
 
-  String get _uid => _auth.currentUser?.uid ?? '';
+  String? get _uid => _auth.currentUser?.uid;
 
   // ── Firestore streams ────────────────────────────────────────────────────
 
-  Stream<DashboardStats> get _statsStream => _db
-      .collection('users')
-      .doc(_uid)
-      .collection('stats')
-      .doc('summary')
-      .snapshots()
-      .map(
-        (snap) => snap.exists
-            ? DashboardStats.fromFirestore(snap.data()!)
-            : const DashboardStats(),
-      );
+  Stream<DashboardStats> get _statsStream {
+    final uid = _uid;
+    if (uid == null) return Stream.value(const DashboardStats());
+    return _db
+        .collection('users')
+        .doc(uid)
+        .collection('stats')
+        .doc('summary')
+        .snapshots()
+        .map(
+          (snap) => snap.exists
+              ? DashboardStats.fromFirestore(snap.data()!)
+              : const DashboardStats(),
+        );
+  }
 
-  Stream<List<DocumentItem>> get _docsStream => _db
-      .collection('users')
-      .doc(_uid)
-      .collection('documents')
-      .orderBy('uploadedAt', descending: true)
-      .limit(3)
-      .snapshots()
-      .map(
-        (snap) => snap.docs
-            .map((d) => DocumentItem.fromFirestore(d.id, d.data()))
-            .toList(),
-      );
+  Stream<List<DocumentItem>> get _docsStream {
+    final uid = _uid;
+    if (uid == null) return Stream.value([]);
+    return _db
+        .collection('users')
+        .doc(uid)
+        .collection('documents')
+        .orderBy('uploadedAt', descending: true)
+        .limit(3)
+        .snapshots()
+        .map(
+          (snap) => snap.docs
+              .map((d) => DocumentItem.fromFirestore(d.id, d.data()))
+              .toList(),
+        );
+  }
 
-  Stream<List<ActivityItem>> get _activityStream => _db
-      .collection('users')
-      .doc(_uid)
-      .collection('activity')
-      .orderBy('time', descending: true)
-      .limit(4)
-      .snapshots()
-      .map(
-        (snap) =>
-            snap.docs.map((d) => ActivityItem.fromFirestore(d.data())).toList(),
-      );
+  Stream<List<ActivityItem>> get _activityStream {
+    final uid = _uid;
+    if (uid == null) return Stream.value([]);
+    return _db
+        .collection('users')
+        .doc(uid)
+        .collection('activity')
+        .orderBy('time', descending: true)
+        .limit(4)
+        .snapshots()
+        .map(
+          (snap) =>
+              snap.docs.map((d) => ActivityItem.fromFirestore(d.data())).toList(),
+        );
+  }
 
-  Stream<List<double>> get _weeklyUsageStream => _db
-      .collection('users')
-      .doc(_uid)
-      .collection('weeklyUsage')
-      .orderBy('day')
-      .limit(7)
-      .snapshots()
-      .map((snap) {
-        if (snap.docs.isEmpty) return List.filled(7, 0.0);
-        final counts = snap.docs.map((d) => (d['count'] ?? 0) as int).toList();
-        final maxVal = counts.reduce((a, b) => a > b ? a : b);
-        if (maxVal == 0) return List.filled(7, 0.0);
-        return counts.map((c) => c / maxVal).toList();
-      });
+  Stream<List<double>> get _weeklyUsageStream {
+    final uid = _uid;
+    if (uid == null) return Stream.value(List.filled(7, 0.0));
+    return _db
+        .collection('users')
+        .doc(uid)
+        .collection('weeklyUsage')
+        .orderBy('day')
+        .limit(7)
+        .snapshots()
+        .map((snap) {
+          if (snap.docs.isEmpty) return List.filled(7, 0.0);
+          final counts = snap.docs.map((d) => (d['count'] ?? 0) as int).toList();
+          final maxVal = counts.reduce((a, b) => a > b ? a : b);
+          if (maxVal == 0) return List.filled(7, 0.0);
+          return counts.map((c) => c / maxVal).toList();
+        });
+  }
 
   // ── Build ────────────────────────────────────────────────────────────────
 
@@ -207,7 +223,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               shape: BoxShape.circle,
               gradient: RadialGradient(
                 colors: [
-                  const Color(0xFF7B5EA7).withOpacity(0.15),
+                  const Color(0xFF7B5EA7).withValues(alpha: 0.15),
                   Colors.transparent,
                 ],
               ),
@@ -225,7 +241,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               shape: BoxShape.circle,
               gradient: RadialGradient(
                 colors: [
-                  const Color(0xFFC9A84C).withOpacity(0.12),
+                  const Color(0xFFC9A84C).withValues(alpha: 0.12),
                   Colors.transparent,
                 ],
               ),
@@ -797,7 +813,7 @@ class _DocItem extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: iconColor.withOpacity(0.1),
+                  color: iconColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(icon, size: 20, color: iconColor),
@@ -831,7 +847,7 @@ class _DocItem extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.12),
+                  color: statusColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
@@ -1012,14 +1028,14 @@ class _WeeklyBarChart extends StatelessWidget {
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 400),
                   curve: Curves.easeOut,
-                  height: 56 * chartValues[i],
+                  height: (56 * chartValues[i]).clamp(4.0, 56.0),
                   margin: const EdgeInsets.symmetric(horizontal: 3),
                   decoration: BoxDecoration(
                     color: isToday ? activeColor : context.progressBg,
                     borderRadius: BorderRadius.circular(4),
                     border: Border.all(
                       color: isToday
-                          ? activeColor.withOpacity(0.5)
+                          ? activeColor.withValues(alpha: 0.5)
                           : context.dividerColor,
                       width: 0.5,
                     ),
@@ -1049,8 +1065,7 @@ class _HoverMenuButton extends StatefulWidget {
   final IconData icon;
   final List<_HoverMenuItem> items;
 
-  const _HoverMenuButton({required this.icon, required this.items, Key? key})
-    : super(key: key);
+  const _HoverMenuButton({required this.icon, required this.items});
 
   @override
   State<_HoverMenuButton> createState() => _HoverMenuButtonState();
@@ -1110,8 +1125,7 @@ class _HoverMenuTile extends StatefulWidget {
     required this.icon,
     required this.label,
     required this.onTap,
-    Key? key,
-  }) : super(key: key);
+  });
 
   @override
   State<_HoverMenuTile> createState() => _HoverMenuTileState();
@@ -1132,7 +1146,7 @@ class _HoverMenuTileState extends State<_HoverMenuTile> {
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
             color: _hover
-                ? const Color(0xFFD4AF6A).withOpacity(0.08)
+                ? const Color(0xFFD4AF6A).withValues(alpha: 0.08)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
           ),
@@ -1141,7 +1155,7 @@ class _HoverMenuTileState extends State<_HoverMenuTile> {
               Icon(
                 widget.icon,
                 size: 20,
-                color: const Color(0xFFD4AF6A).withOpacity(0.85),
+                color: const Color(0xFFD4AF6A).withValues(alpha: 0.85),
               ),
               const SizedBox(width: 12),
               Text(

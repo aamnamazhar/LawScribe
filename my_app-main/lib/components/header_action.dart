@@ -30,7 +30,7 @@ class _HeaderActionState extends State<HeaderAction> {
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: isHovering ? Colors.white.withOpacity(0.15) : Colors.transparent,
+            color: isHovering ? Colors.white.withValues(alpha: 0.15) : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
           ),
           child: Row(
