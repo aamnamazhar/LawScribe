@@ -109,6 +109,14 @@ def store_document_hash(doc_id: str, uploader: str, file_hash: str) -> Optional[
         tx_hex = tx_hash.hex()
         print(f"[blockchain] ✅ storeDocument tx: {tx_hex}")
         print(f"[blockchain]    https://sepolia.etherscan.io/tx/{tx_hex}")
+
+        # Wait for the transaction to be mined so verify works immediately
+        try:
+            receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=30)
+            print(f"[blockchain]    mined in block {receipt.blockNumber}, status={receipt.status}")
+        except Exception as wait_err:
+            print(f"[blockchain]    ⚠ receipt wait failed (tx may still confirm): {wait_err}")
+
         return tx_hex
     except Exception as e:
         print(f"[blockchain] ❌ storeDocument failed: {type(e).__name__}: {e}")

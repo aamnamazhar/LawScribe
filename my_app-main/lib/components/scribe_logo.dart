@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 class ScribeLogo extends StatefulWidget {
   final double height;
+  /// Force the wordmark color regardless of theme (e.g. splash always dark bg).
+  final Color? forcedTextColor;
 
-  const ScribeLogo({super.key, this.height = 40});
+  const ScribeLogo({super.key, this.height = 40, this.forcedTextColor});
 
   @override
   State<ScribeLogo> createState() => _ScribeLogoState();
@@ -17,9 +19,10 @@ class _ScribeLogoState extends State<ScribeLogo> {
     const brandBlue = Color(0xFF4C8DFF);
     // Adapt the wordmark color to the active theme so it stays visible on
     // both the dark (#0F0F22) and light (#FFFFFF) app bar backgrounds.
-    final textColor = Theme.of(context).brightness == Brightness.dark
-        ? Colors.white
-        : const Color(0xFF0D0D1A);
+    final textColor = widget.forcedTextColor ??
+        (Theme.of(context).brightness == Brightness.dark
+            ? Colors.white
+            : const Color(0xFF0D0D1A));
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,

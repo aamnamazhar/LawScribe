@@ -34,66 +34,125 @@ class ChatBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final maxWidth = MediaQuery.of(context).size.width * 0.72;
+    final maxWidth = MediaQuery.of(context).size.width * 0.75;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
-        mainAxisAlignment: isUser
-            ? MainAxisAlignment.end
-            : MainAxisAlignment.start,
+        mainAxisAlignment:
+            isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           // AI avatar
           if (!isUser) ...[
             _Avatar(label: label, isUser: false),
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
           ],
 
           Flexible(
             child: Column(
-              crossAxisAlignment: isUser
-                  ? CrossAxisAlignment.end
-                  : CrossAxisAlignment.start,
+              crossAxisAlignment:
+                  isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
               children: [
-                // Bubble
+                // ── Bubble ───────────────────────────────────────────────
                 Container(
                   constraints: BoxConstraints(maxWidth: maxWidth),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 11,
-                  ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
-                    color: isUser
-                        ? (context.isDark
-                            ? const Color(0xFF1E1530)
-                            : const Color(0xFFEDE7F6))
-                        : context.cardColor,
+                    // User: purple tint. AI: warm cream/dark card.
+                    gradient: isUser
+                        ? LinearGradient(
+                            colors: context.isDark
+                                ? [
+                                    const Color(0xFF1E1530),
+                                    const Color(0xFF1A1228),
+                                  ]
+                                : [
+                                    const Color(0xFFF0EBF7),
+                                    const Color(0xFFE8E0F4),
+                                  ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          )
+                        : LinearGradient(
+                            colors: context.isDark
+                                ? [
+                                    const Color(0xFF12122A),
+                                    const Color(0xFF0F0F22),
+                                  ]
+                                : [
+                                    const Color(0xFFFFFDF8),
+                                    const Color(0xFFFAF7F0),
+                                  ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
                     borderRadius: BorderRadius.only(
-                      topLeft: const Radius.circular(18),
-                      topRight: const Radius.circular(18),
-                      bottomLeft: Radius.circular(isUser ? 18 : 4),
-                      bottomRight: Radius.circular(isUser ? 4 : 18),
+                      topLeft: const Radius.circular(20),
+                      topRight: const Radius.circular(20),
+                      bottomLeft: Radius.circular(isUser ? 20 : 4),
+                      bottomRight: Radius.circular(isUser ? 4 : 20),
                     ),
                     border: Border.all(
                       color: isUser
-                          ? const Color(0xFF7B5EA7).withValues(alpha: 0.35)
-                          : context.borderColor,
+                          ? (context.isDark
+                              ? const Color(0xFF7B5EA7).withValues(alpha: 0.30)
+                              : const Color(0xFF7B5EA7).withValues(alpha: 0.15))
+                          : (context.isDark
+                              ? const Color(0xFFD4AF6A).withValues(alpha: 0.10)
+                              : const Color(0xFFD4AF6A).withValues(alpha: 0.12)),
                       width: 1,
                     ),
                     boxShadow: [
                       BoxShadow(
                         color: isUser
-                            ? const Color(0xFF7B5EA7).withValues(alpha: 0.12)
-                            : Colors.black.withValues(alpha: 0.2),
-                        blurRadius: 12,
+                            ? const Color(0xFF7B5EA7).withValues(alpha: context.isDark ? 0.15 : 0.08)
+                            : Colors.black.withValues(alpha: context.isDark ? 0.25 : 0.06),
+                        blurRadius: 16,
                         offset: const Offset(0, 4),
                       ),
+                      if (!context.isDark && !isUser)
+                        BoxShadow(
+                          color: const Color(0xFFD4AF6A).withValues(alpha: 0.04),
+                          blurRadius: 24,
+                          offset: const Offset(0, 8),
+                        ),
                     ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // AI label inside bubble
+                      if (!isUser && !isTyping)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 4,
+                                height: 4,
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Color(0xFFD4AF6A),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'LawScribe AI',
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFFD4AF6A)
+                                      .withValues(alpha: 0.7),
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
                       // Typing indicator
                       if (isTyping)
                         _TypingIndicator()
@@ -110,7 +169,7 @@ class ChatBubble extends StatelessWidget {
                           style: TextStyle(
                             color: context.textPrimary,
                             fontSize: 14,
-                            height: 1.5,
+                            height: 1.55,
                           ),
                         ),
 
@@ -133,7 +192,8 @@ class ChatBubble extends StatelessWidget {
                               child: Icon(
                                 Icons.done_all,
                                 size: 13,
-                                color: const Color(0xFFD4AF6A).withValues(alpha: 0.7),
+                                color: const Color(0xFFD4AF6A)
+                                    .withValues(alpha: 0.7),
                               ),
                             ),
                         ],
@@ -144,11 +204,10 @@ class ChatBubble extends StatelessWidget {
 
                 const SizedBox(height: 4),
 
-                // Action buttons
+                // ── Action buttons ───────────────────────────────────────
                 Row(
-                  mainAxisAlignment: isUser
-                      ? MainAxisAlignment.end
-                      : MainAxisAlignment.start,
+                  mainAxisAlignment:
+                      isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
                   children: isUser
                       ? [
                           if (onCopy != null)
@@ -191,7 +250,7 @@ class ChatBubble extends StatelessWidget {
 
           // User avatar
           if (isUser) ...[
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
             _Avatar(label: label, isUser: true),
           ],
         ],
@@ -211,8 +270,8 @@ class _Avatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 32,
-      height: 32,
+      width: 34,
+      height: 34,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: LinearGradient(
@@ -224,10 +283,11 @@ class _Avatar extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: (isUser ? const Color(0xFF7B5EA7) : const Color(0xFFD4AF6A))
-                .withValues(alpha: 0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color:
+                (isUser ? const Color(0xFF7B5EA7) : const Color(0xFFD4AF6A))
+                    .withValues(alpha: 0.35),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
@@ -256,29 +316,40 @@ class _FileBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isPdf = fileName.toLowerCase().endsWith('.pdf');
+    final accentColor =
+        isPdf ? const Color(0xFFD4AF6A) : const Color(0xFF4A90D9);
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: context.cardColor,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: context.borderColor, width: 0.8),
+        color: accentColor.withValues(alpha: context.isDark ? 0.08 : 0.06),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: accentColor.withValues(alpha: 0.15),
+          width: 1,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 32,
-            height: 32,
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
-              color: isPdf
-                  ? const Color(0xFFD4AF6A).withValues(alpha: 0.12)
-                  : const Color(0xFF4A90D9).withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8),
+              gradient: LinearGradient(
+                colors: [
+                  accentColor.withValues(alpha: 0.20),
+                  accentColor.withValues(alpha: 0.10),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
               isPdf ? Icons.picture_as_pdf_outlined : Icons.article_outlined,
-              size: 16,
-              color: isPdf ? const Color(0xFFD4AF6A) : const Color(0xFF4A90D9),
+              size: 18,
+              color: accentColor,
             ),
           ),
           const SizedBox(width: 10),
@@ -291,7 +362,7 @@ class _FileBubble extends StatelessWidget {
                   style: TextStyle(
                     color: context.textPrimary,
                     fontSize: 13,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -326,9 +397,6 @@ class _TypingIndicatorState extends State<_TypingIndicator>
   @override
   void initState() {
     super.initState();
-    // Single controller looping every 1.2s. Dots are phase-offset within the
-    // build method so all three pulse continuously, staggered, without any
-    // delayed forward() races.
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
@@ -341,12 +409,10 @@ class _TypingIndicatorState extends State<_TypingIndicator>
     super.dispose();
   }
 
-  /// Triangle wave opacity for dot [i] given controller progress [t] in [0, 1).
-  /// Each dot is offset by 1/3 of the cycle, so they pulse in sequence.
   double _dotOpacity(int i, double t) {
     final phase = (t + i / 3.0) % 1.0;
     final tri = phase < 0.5 ? phase * 2.0 : (1.0 - phase) * 2.0;
-    return 0.25 + tri * 0.75; // floor at 0.25 so dots never fully vanish
+    return 0.25 + tri * 0.75;
   }
 
   @override
@@ -416,9 +482,7 @@ class _ActionIconState extends State<_ActionIcon> {
             child: Icon(
               widget.icon,
               size: 14,
-              color: _hover
-                  ? const Color(0xFFD4AF6A)
-                  : context.textSecondary,
+              color: _hover ? const Color(0xFFD4AF6A) : context.textSecondary,
             ),
           ),
         ),

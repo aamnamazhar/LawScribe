@@ -114,11 +114,29 @@ class _ChatScreenState extends State<ChatScreen> {
   String? currentDocumentPath;
   String? currentDocId;
   String? currentBlockchainTx;
+  String? _uploadedFileName;
+  bool _showScrollFab = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
 
   @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final atBottom = _scrollController.offset >=
+        _scrollController.position.maxScrollExtent - 120;
+    if (_showScrollFab == atBottom) {
+      setState(() => _showScrollFab = !atBottom);
+    }
   }
 
   final List<Map<String, dynamic>> messages = [
@@ -174,6 +192,7 @@ class _ChatScreenState extends State<ChatScreen> {
           currentDocumentPath = data["file"]["path"];
           currentDocId = data["file"]["hash"];
           currentBlockchainTx = data["file"]["blockchain_tx"];
+          _uploadedFileName = file.name;
 
           setState(() {
             isTyping = false;
@@ -628,31 +647,36 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget _buildWelcomeHero(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
+        padding: const EdgeInsets.symmetric(horizontal: 28),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Logo icon
+            // Logo icon with pulse glow
             Container(
-              width: 72,
-              height: 72,
+              width: 76,
+              height: 76,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
                   colors: [Color(0xFFD4AF6A), Color(0xFFF5D98B)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                borderRadius: BorderRadius.circular(22),
+                borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFD4AF6A).withValues(alpha: 0.3),
-                    blurRadius: 24,
-                    offset: const Offset(0, 8),
+                    color: const Color(0xFFD4AF6A).withValues(alpha: 0.35),
+                    blurRadius: 32,
+                    offset: const Offset(0, 10),
+                  ),
+                  BoxShadow(
+                    color: const Color(0xFF7B5EA7).withValues(alpha: 0.15),
+                    blurRadius: 48,
+                    offset: const Offset(0, 16),
                   ),
                 ],
               ),
               child: const Icon(
-                Icons.bolt_rounded,
+                Icons.balance_rounded,
                 color: Color(0xFF0A0A14),
                 size: 36,
               ),
@@ -660,7 +684,6 @@ class _ChatScreenState extends State<ChatScreen> {
 
             const SizedBox(height: 28),
 
-            // Greeting
             Text(
               'Welcome to LawScribe',
               style: TextStyle(
@@ -671,16 +694,161 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             ),
 
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
 
             Text(
-              'Upload a document or type a message\nto get started.',
+              'Your AI-powered legal assistant',
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 15,
+                fontSize: 14,
                 color: context.textSecondary,
                 height: 1.5,
               ),
+            ),
+
+            const SizedBox(height: 32),
+
+            // Suggestion chips
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.center,
+              children: [
+                _SuggestionChip(
+                  icon: Icons.upload_file_rounded,
+                  label: 'Upload a contract',
+                  onTap: () {
+                    // Trigger the file picker from the message input
+                    // We send an empty message with a null file to signal pick
+                    _pickFileDirectly();
+                  },
+                ),
+                _SuggestionChip(
+                  icon: Icons.help_outline_rounded,
+                  label: 'What can you do?',
+                  onTap: () => sendMessage('What can you do?', null, null),
+                ),
+                _SuggestionChip(
+                  icon: Icons.gavel_rounded,
+                  label: 'Explain legal terms',
+                  onTap: () => sendMessage(
+                    'What are common legal terms I should know about in contracts?',
+                    null,
+                    null,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickFileDirectly() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'doc', 'docx'],
+      );
+      if (result != null && result.files.isNotEmpty) {
+        sendMessage('', result.files.first, null);
+      }
+    } catch (_) {}
+  }
+
+  // ── Document status strip ──────────────────────────────────────────────────
+
+  Widget _buildDocumentStrip(BuildContext context) {
+    if (_uploadedFileName == null) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFD4AF6A).withValues(alpha: 0.08),
+        border: Border(
+          bottom: BorderSide(
+            color: const Color(0xFFD4AF6A).withValues(alpha: 0.15),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: Color(0xFF4CAF82),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Icon(
+            Icons.description_outlined,
+            size: 14,
+            color: const Color(0xFFD4AF6A).withValues(alpha: 0.8),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              _uploadedFileName!,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: context.textSecondary,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Text(
+            'Active',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF4CAF82).withValues(alpha: 0.8),
+              letterSpacing: 0.3,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Quick action chips after upload ────────────────────────────────────────
+
+  Widget _buildQuickActions(BuildContext context) {
+    if (currentDocId == null) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 4, 14, 8),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            _QuickActionChip(
+              icon: Icons.summarize_rounded,
+              label: 'Summarize',
+              onTap: () => sendMessage('Summarize this document', null, null),
+            ),
+            const SizedBox(width: 8),
+            _QuickActionChip(
+              icon: Icons.find_in_page_rounded,
+              label: 'Detect Clauses',
+              onTap: () => sendMessage('Detect clauses', null, null),
+            ),
+            const SizedBox(width: 8),
+            _QuickActionChip(
+              icon: Icons.lightbulb_outline_rounded,
+              label: 'Get Insights',
+              onTap: () => sendMessage('Give me insights', null, null),
+            ),
+            const SizedBox(width: 8),
+            _QuickActionChip(
+              icon: Icons.warning_amber_rounded,
+              label: 'Key Risks',
+              onTap: () => sendMessage('What are the key risks in this contract?', null, null),
             ),
           ],
         ),
@@ -722,13 +890,13 @@ class _ChatScreenState extends State<ChatScreen> {
             top: -60,
             left: -60,
             child: Container(
-              width: 240,
-              height: 240,
+              width: 280,
+              height: 280,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    const Color(0xFF7B5EA7).withValues(alpha: 0.15),
+                    const Color(0xFF7B5EA7).withValues(alpha: context.isDark ? 0.15 : 0.08),
                     Colors.transparent,
                   ],
                 ),
@@ -740,23 +908,46 @@ class _ChatScreenState extends State<ChatScreen> {
             bottom: 60,
             right: -40,
             child: Container(
-              width: 180,
-              height: 180,
+              width: 220,
+              height: 220,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    const Color(0xFFC9A84C).withValues(alpha: 0.10),
+                    const Color(0xFFC9A84C).withValues(alpha: context.isDark ? 0.10 : 0.07),
                     Colors.transparent,
                   ],
                 ),
               ),
             ),
           ),
+          // Light mode: subtle warm tint across the chat area
+          if (!context.isDark)
+            Positioned.fill(
+              child: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Color(0xFFFAF8F5),
+                      Color(0xFFF4F2EE),
+                      Color(0xFFF8F6F2),
+                    ],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    stops: [0.0, 0.5, 1.0],
+                  ),
+                ),
+              ),
+            ),
 
           Column(
             children: [
-              const SizedBox(height: 8),
+              // Document status strip
+              _buildDocumentStrip(context),
+
+              // Quick action chips
+              _buildQuickActions(context),
+
               Expanded(
                 child: messages.length <= 1 && !isTyping
                     ? _buildWelcomeHero(context)
@@ -859,6 +1050,40 @@ class _ChatScreenState extends State<ChatScreen> {
               MessageInputBar(onSend: sendMessage),
             ],
           ),
+
+          // Scroll-to-bottom FAB
+          if (_showScrollFab)
+            Positioned(
+              bottom: 90,
+              right: 16,
+              child: GestureDetector(
+                onTap: _scrollToBottom,
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: context.cardColor,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: const Color(0xFFD4AF6A).withValues(alpha: 0.3),
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.2),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: const Color(0xFFD4AF6A).withValues(alpha: 0.8),
+                    size: 22,
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -912,6 +1137,155 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── SUGGESTION CHIP (welcome screen) ─────────────────────────────────────────
+
+class _SuggestionChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _SuggestionChip({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+        decoration: BoxDecoration(
+          color: context.isDark
+              ? const Color(0xFF12122A)
+              : Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: context.isDark
+                ? const Color(0xFFD4AF6A).withValues(alpha: 0.18)
+                : const Color(0xFFD4AF6A).withValues(alpha: 0.22),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: context.isDark
+                  ? Colors.black.withValues(alpha: 0.15)
+                  : const Color(0xFFD4AF6A).withValues(alpha: 0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 3),
+            ),
+            if (!context.isDark)
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 6,
+                offset: const Offset(0, 1),
+              ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 15,
+              color: context.isDark
+                  ? const Color(0xFFD4AF6A).withValues(alpha: 0.8)
+                  : const Color(0xFFB8943A),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w500,
+                color: context.isDark
+                    ? context.textSecondary
+                    : const Color(0xFF4A4540),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── QUICK ACTION CHIP (after document upload) ────────────────────────────────
+
+class _QuickActionChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _QuickActionChip({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: context.isDark
+                ? [
+                    const Color(0xFFD4AF6A).withValues(alpha: 0.14),
+                    const Color(0xFFF5D98B).withValues(alpha: 0.06),
+                  ]
+                : [
+                    const Color(0xFFD4AF6A).withValues(alpha: 0.10),
+                    const Color(0xFFF5D98B).withValues(alpha: 0.05),
+                  ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: const Color(0xFFD4AF6A).withValues(alpha: context.isDark ? 0.30 : 0.25),
+            width: 1,
+          ),
+          boxShadow: [
+            if (!context.isDark)
+              BoxShadow(
+                color: const Color(0xFFD4AF6A).withValues(alpha: 0.08),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 14,
+              color: context.isDark
+                  ? const Color(0xFFD4AF6A)
+                  : const Color(0xFFB8943A),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: context.isDark
+                    ? const Color(0xFFD4AF6A)
+                    : const Color(0xFFB8943A),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

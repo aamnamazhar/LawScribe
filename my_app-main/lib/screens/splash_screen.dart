@@ -183,8 +183,8 @@ class _SplashScreenState extends State<SplashScreen>
 
                         const SizedBox(height: 28),
 
-                        // Logo / wordmark
-                        ScribeLogo(height: 38),
+                        // Logo / wordmark — always white on dark splash bg
+                        ScribeLogo(height: 38, forcedTextColor: Colors.white),
 
                         const SizedBox(height: 12),
 

@@ -270,7 +270,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 color: const Color(0xFF7B5EA7),
                 onTap: () {
                   if (widget.asDrawer) {
-                    Navigator.pop(context);
+                    Navigator.pop(context); // close drawer
+                    // Replace the current chat with a fresh one
+                    Navigator.pushReplacementNamed(context, '/chat');
                   } else {
                     Navigator.pushNamed(context, '/chat');
                   }
@@ -284,7 +286,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 color: const Color(0xFF4A90D9),
                 onTap: () {
                   if (widget.asDrawer) {
-                    Navigator.pop(context);
+                    Navigator.pop(context); // close drawer
+                    Navigator.pushReplacementNamed(context, '/chat');
                   } else {
                     Navigator.pushNamed(context, '/chat');
                   }
@@ -298,7 +301,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 color: const Color(0xFF4CAF82),
                 onTap: () {
                   if (widget.asDrawer) {
-                    Navigator.pop(context);
+                    Navigator.pop(context); // close drawer
+                    Navigator.pushReplacementNamed(context, '/chat');
                   } else {
                     Navigator.pushNamed(context, '/chat');
                   }

@@ -13,8 +13,9 @@ class ApiService {
     defaultValue: "http://192.168.1.9:8000",
   );
 
-  static const _timeout = Duration(seconds: 30);
-  static const _uploadTimeout = Duration(seconds: 120);
+  static const _timeout = Duration(seconds: 60);
+  static const _aiTimeout = Duration(seconds: 120);
+  static const _uploadTimeout = Duration(seconds: 180);
 
   // ── Auth header ───────────────────────────────────────────────────────────
 
@@ -84,7 +85,7 @@ class ApiService {
       uri,
       headers: headers,
       body: jsonEncode({"doc_id": docId}),
-    ).timeout(_timeout);
+    ).timeout(_aiTimeout);
     if (response.statusCode == 200) {
       return jsonDecode(response.body)["clauses"];
     }
@@ -100,7 +101,7 @@ class ApiService {
       uri,
       headers: headers,
       body: jsonEncode({"doc_id": docId}),
-    ).timeout(_timeout);
+    ).timeout(_aiTimeout);
     if (response.statusCode == 200) {
       return jsonDecode(response.body)["insights"];
     }
