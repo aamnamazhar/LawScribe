@@ -100,8 +100,8 @@ class ChatBubble extends StatelessWidget {
                               ? const Color(0xFF7B5EA7).withValues(alpha: 0.30)
                               : const Color(0xFF7B5EA7).withValues(alpha: 0.15))
                           : (context.isDark
-                              ? const Color(0xFFD4AF6A).withValues(alpha: 0.10)
-                              : const Color(0xFFD4AF6A).withValues(alpha: 0.12)),
+                              ? context.accent.withValues(alpha: 0.10)
+                              : context.accent.withValues(alpha: 0.12)),
                       width: 1,
                     ),
                     boxShadow: [
@@ -114,7 +114,7 @@ class ChatBubble extends StatelessWidget {
                       ),
                       if (!context.isDark && !isUser)
                         BoxShadow(
-                          color: const Color(0xFFD4AF6A).withValues(alpha: 0.04),
+                          color: context.accent.withValues(alpha: 0.04),
                           blurRadius: 24,
                           offset: const Offset(0, 8),
                         ),
@@ -133,9 +133,9 @@ class ChatBubble extends StatelessWidget {
                               Container(
                                 width: 4,
                                 height: 4,
-                                decoration: const BoxDecoration(
+                                decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: Color(0xFFD4AF6A),
+                                  color: context.accent,
                                 ),
                               ),
                               const SizedBox(width: 6),
@@ -144,7 +144,7 @@ class ChatBubble extends StatelessWidget {
                                 style: TextStyle(
                                   fontSize: 10.5,
                                   fontWeight: FontWeight.w600,
-                                  color: const Color(0xFFD4AF6A)
+                                  color: context.accent
                                       .withValues(alpha: 0.7),
                                   letterSpacing: 0.3,
                                 ),
@@ -192,7 +192,7 @@ class ChatBubble extends StatelessWidget {
                               child: Icon(
                                 Icons.done_all,
                                 size: 13,
-                                color: const Color(0xFFD4AF6A)
+                                color: context.accent
                                     .withValues(alpha: 0.7),
                               ),
                             ),
@@ -277,14 +277,14 @@ class _Avatar extends StatelessWidget {
         gradient: LinearGradient(
           colors: isUser
               ? [const Color(0xFF7B5EA7), const Color(0xFF9B7EC7)]
-              : [const Color(0xFFD4AF6A), const Color(0xFFF5D98B)],
+              : [context.accent, context.accentSecondary],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         boxShadow: [
           BoxShadow(
             color:
-                (isUser ? const Color(0xFF7B5EA7) : const Color(0xFFD4AF6A))
+                (isUser ? const Color(0xFF7B5EA7) : context.accent)
                     .withValues(alpha: 0.35),
             blurRadius: 10,
             offset: const Offset(0, 3),
@@ -317,7 +317,7 @@ class _FileBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final isPdf = fileName.toLowerCase().endsWith('.pdf');
     final accentColor =
-        isPdf ? const Color(0xFFD4AF6A) : const Color(0xFF4A90D9);
+        isPdf ? context.accent : const Color(0xFF4A90D9);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -344,7 +344,7 @@ class _FileBubble extends StatelessWidget {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
               isPdf ? Icons.picture_as_pdf_outlined : Icons.article_outlined,
@@ -409,30 +409,35 @@ class _TypingIndicatorState extends State<_TypingIndicator>
     super.dispose();
   }
 
-  double _dotOpacity(int i, double t) {
-    final phase = (t + i / 3.0) % 1.0;
+  /// Smooth, staggered 0→1→0 pulse for each dot (smoothstep-eased).
+  double _pulse(int i, double t) {
+    var phase = (t - i * 0.18) % 1.0;
+    if (phase < 0) phase += 1.0;
     final tri = phase < 0.5 ? phase * 2.0 : (1.0 - phase) * 2.0;
-    return 0.25 + tri * 0.75;
+    return tri * tri * (3 - 2 * tri); // smoothstep
   }
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 18,
+      height: 16,
       child: AnimatedBuilder(
         animation: _controller,
         builder: (context, _) => Row(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: List.generate(3, (i) {
-            final opacity = _dotOpacity(i, _controller.value);
-            return Container(
-              width: 9,
-              height: 9,
-              margin: EdgeInsets.only(right: i < 2 ? 5 : 0),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFFD4AF6A).withValues(alpha: opacity),
+            final p = _pulse(i, _controller.value);
+            return Transform.translate(
+              offset: Offset(0, -3 * p),
+              child: Container(
+                width: 6,
+                height: 6,
+                margin: EdgeInsets.only(right: i < 2 ? 5 : 0),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: context.accent.withValues(alpha: 0.35 + 0.65 * p),
+                ),
               ),
             );
           }),
@@ -477,12 +482,12 @@ class _ActionIconState extends State<_ActionIcon> {
             margin: const EdgeInsets.only(right: 2),
             decoration: BoxDecoration(
               color: _hover ? context.borderColor : Colors.transparent,
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
               widget.icon,
               size: 14,
-              color: _hover ? const Color(0xFFD4AF6A) : context.textSecondary,
+              color: _hover ? context.accent : context.textSecondary,
             ),
           ),
         ),

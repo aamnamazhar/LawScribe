@@ -10,6 +10,30 @@ except ImportError:
     def _inc(n): return n  # fallback: plain int (no server-side atomicity)
 
 
+def _bump_weekly(user_ref):
+    """Increment today's bar on the weekly-usage chart, resetting the count when
+    a new week begins so the chart only ever reflects the *current* week.
+
+    Uses local time (not UTC) so the logged day lines up with the app's "today"
+    highlight, and stamps each day's doc with the week it belongs to (weekStart =
+    this week's Monday) so the dashboard can ignore leftover days from prior weeks.
+    """
+    local_now = datetime.datetime.now()
+    weekday = local_now.weekday()  # 0=Mon … 6=Sun
+    week_start = (local_now.date() - datetime.timedelta(days=weekday)).isoformat()
+    day_doc = user_ref.collection("weeklyUsage").document(str(weekday))
+    try:
+        snap = day_doc.get()
+        data = snap.to_dict() if snap.exists else None
+        if data and data.get("weekStart") == week_start:
+            count = (data.get("count", 0) or 0) + 1
+        else:
+            count = 1  # new week (or first use of this weekday) → start fresh
+        day_doc.set({"day": weekday, "count": count, "weekStart": week_start})
+    except Exception as e:
+        print(f"[Firestore] _bump_weekly error: {e}")
+
+
 def get_document_local_path(doc_id: str) -> Optional[str]:
     """Look up the on-disk path for a previously uploaded document by its doc_id (sha256)."""
     db = get_db()
@@ -35,7 +59,6 @@ def on_document_uploaded(uid: str, filename: str, file_hash: str, file_size_byte
         return
 
     now = datetime.datetime.utcnow()
-    today_weekday = now.weekday()  # 0=Mon, 6=Sun
     file_ext = os.path.splitext(filename)[1].lstrip('.').lower() or 'pdf'
 
     try:
@@ -66,13 +89,10 @@ def on_document_uploaded(uid: str, filename: str, file_hash: str, file_size_byte
             "type": "upload",
         })
 
-        # 4. Increment today's bar on weekly chart
-        batch.set(user_ref.collection("weeklyUsage").document(str(today_weekday)), {
-            "day": today_weekday,
-            "count": _inc(1),
-        }, merge=True)
-
         batch.commit()
+
+        # Weekly chart — separate read-modify-write so it can reset each week.
+        _bump_weekly(user_ref)
 
     except Exception as e:
         print(f"[Firestore] on_document_uploaded error: {e}")
@@ -87,7 +107,6 @@ def on_ai_query(uid: str, question: str):
         return
 
     now = datetime.datetime.utcnow()
-    today_weekday = now.weekday()
 
     try:
         user_ref = db.collection("users").document(uid)
@@ -108,13 +127,10 @@ def on_ai_query(uid: str, question: str):
             "type": "chat",
         })
 
-        # Weekly chart
-        batch.set(user_ref.collection("weeklyUsage").document(str(today_weekday)), {
-            "day": today_weekday,
-            "count": _inc(1),
-        }, merge=True)
-
         batch.commit()
+
+        # Weekly chart — separate read-modify-write so it can reset each week.
+        _bump_weekly(user_ref)
 
     except Exception as e:
         print(f"[Firestore] on_ai_query error: {e}")

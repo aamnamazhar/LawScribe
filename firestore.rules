@@ -1,0 +1,24 @@
+rules_version = '2';
+
+// LawScribe Firestore security rules.
+//
+// The Flutter app reads/writes each signed-in user's own data directly:
+//   users/{uid}/chats/**       chat history (titles + messages)
+//   users/{uid}/documents/**   uploaded-document metadata
+//   users/{uid}/stats/**       dashboard counters
+//   users/{uid}/activity/**    activity feed
+//   users/{uid}/weeklyUsage/** weekly chart
+//
+// The backend uses the Firebase Admin SDK, which bypasses these rules, so the
+// top-level DOCUMENTS collection it writes needs no client rule and stays
+// locked by default.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // A user may read and write anything under their own user document.
+    match /users/{uid}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+  }
+}

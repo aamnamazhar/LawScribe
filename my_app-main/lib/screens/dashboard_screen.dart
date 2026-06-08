@@ -5,6 +5,7 @@ import '../../../components/scribe_logo.dart';
 import '../../../components/dashboard_stat_card.dart';
 import '../../../components/dashboard_quick_action.dart';
 import '../../../components/_header_button.dart';
+import '../services/chat_store.dart';
 import '../theme_provider.dart';
 
 // ── DATA MODELS ───────────────────────────────────────────────────────────────
@@ -188,6 +189,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         );
   }
 
+  Stream<List<ChatSummary>> get _chatsStream =>
+      ChatStore.recentChatsStream(limit: 10);
+
   Stream<List<double>> get _weeklyUsageStream {
     final uid = _uid;
     if (uid == null) return Stream.value(List.filled(7, 0.0));
@@ -195,15 +199,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
         .collection('users')
         .doc(uid)
         .collection('weeklyUsage')
-        .orderBy('day')
         .limit(7)
         .snapshots()
         .map((snap) {
-          if (snap.docs.isEmpty) return List.filled(7, 0.0);
-          final counts = snap.docs.map((d) => (d['count'] ?? 0) as int).toList();
-          final maxVal = counts.reduce((a, b) => a > b ? a : b);
+          // Only count docs from the current week (matching the backend's
+          // weekStart), so leftover bars from previous weeks don't show. Each
+          // day's count is placed at its weekday index (0=Mon … 6=Sun) so the
+          // chart always has 7 bars even when only some days have activity.
+          final now = DateTime.now();
+          final monday = now.subtract(Duration(days: now.weekday - 1));
+          final weekStart =
+              '${monday.year}-${monday.month.toString().padLeft(2, '0')}'
+              '-${monday.day.toString().padLeft(2, '0')}';
+
+          final raw = List<int>.filled(7, 0);
+          for (final d in snap.docs) {
+            final data = d.data();
+            if (data['weekStart'] != weekStart) continue; // skip stale weeks
+            final day = (data['day'] ?? -1) as int;
+            final count = (data['count'] ?? 0) as int;
+            if (day >= 0 && day < 7) raw[day] = count;
+          }
+          final maxVal = raw.reduce((a, b) => a > b ? a : b);
           if (maxVal == 0) return List.filled(7, 0.0);
-          return counts.map((c) => c / maxVal).toList();
+          return raw.map((c) => c / maxVal).toList();
         });
   }
 
@@ -241,7 +260,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               shape: BoxShape.circle,
               gradient: RadialGradient(
                 colors: [
-                  const Color(0xFFC9A84C).withValues(alpha: 0.12),
+                  context.accent.withValues(alpha: 0.12),
                   Colors.transparent,
                 ],
               ),
@@ -308,6 +327,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   }
                 },
               ),
+              const SizedBox(height: 8),
+              DashboardQuickAction(
+                icon: Icons.category_outlined,
+                label: 'Classify a clause',
+                subtitle: "Identify a clause's legal category",
+                color: const Color(0xFFD4AF6A),
+                onTap: () {
+                  if (widget.asDrawer) Navigator.pop(context); // close drawer
+                  Navigator.pushNamed(context, '/classify');
+                },
+              ),
+              const SizedBox(height: 28),
+
+              // ── Recent chats ─────────────────────────────────────────
+              const _SectionHeader(label: 'Recent chats'),
+              const SizedBox(height: 12),
+              _buildRecentChats(context),
               const SizedBox(height: 28),
 
               // ── Recent documents ─────────────────────────────────────
@@ -399,7 +435,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             title: 'Pending',
             value: '${stats.pending}',
             icon: Icons.pending_actions_outlined,
-            color: const Color(0xFFD4AF6A),
+            color: context.accent,
             subtitle: 'in queue',
           ),
         ];
@@ -409,7 +445,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           builder: (context, constraints) {
             final width = constraints.maxWidth;
             final crossAxisCount = width > 600 ? 4 : 2;
-            final aspectRatio = crossAxisCount == 4 ? 1.2 : 0.95;
+            // Taller cells on narrow layouts (e.g. the dashboard drawer) so the
+            // stat-card content never overflows.
+            final aspectRatio = crossAxisCount == 4 ? 1.1 : 0.82;
 
             return GridView.count(
               shrinkWrap: true,
@@ -421,6 +459,52 @@ class _DashboardScreenState extends State<DashboardScreen> {
               children: cards,
             );
           },
+        );
+      },
+    );
+  }
+
+  // ── Recent chats ──────────────────────────────────────────────────────────
+
+  /// Open a saved conversation. When shown inside the chat drawer we replace
+  /// the current chat route so the screen reloads with this chat's history.
+  void _openChat(BuildContext context, String chatId) {
+    if (widget.asDrawer) {
+      Navigator.pop(context); // close drawer
+      Navigator.pushReplacementNamed(context, '/chat', arguments: chatId);
+    } else {
+      Navigator.pushNamed(context, '/chat', arguments: chatId);
+    }
+  }
+
+  Widget _buildRecentChats(BuildContext context) {
+    return StreamBuilder<List<ChatSummary>>(
+      stream: _chatsStream,
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return _loadingCard();
+        }
+        final chats = snap.data ?? [];
+        if (chats.isEmpty) {
+          return _emptyCard('No conversations yet. Start a new chat.');
+        }
+        return _SectionCard(
+          child: Column(
+            children: chats.asMap().entries.map((entry) {
+              final i = entry.key;
+              final chat = entry.value;
+              return _ChatItem(
+                title: chat.title,
+                preview: chat.lastMessage.isNotEmpty
+                    ? chat.lastMessage
+                    : (chat.docName ?? 'Tap to open'),
+                time: DocumentItem._timeAgo(chat.updatedAt),
+                hasDoc: chat.docName != null,
+                isLast: i == chats.length - 1,
+                onTap: () => _openChat(context, chat.id),
+              );
+            }).toList(),
+          ),
         );
       },
     );
@@ -500,7 +584,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final stats = snap.data ?? const DashboardStats();
         const maxDocs = 100;
         const maxResponses = 500;
-        const maxStorageGb = 10.0;
 
         return _SectionCard(
           child: Padding(
@@ -601,7 +684,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Color _colorForType(String type) {
     switch (type.toLowerCase()) {
       case 'pdf':
-        return const Color(0xFFD4AF6A);
+        return context.accent;
       case 'docx':
       case 'doc':
         return const Color(0xFF4A90D9);
@@ -617,7 +700,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return const Color(0xFF4CAF82);
       case 'review':
       case 'pending':
-        return const Color(0xFFD4AF6A);
+        return context.accent;
       case 'failed':
         return const Color(0xFFFF6B6B);
       default:
@@ -703,8 +786,8 @@ class _SectionTitle extends StatelessWidget {
           width: 4,
           height: 26,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFFD4AF6A), Color(0xFFF5D98B)],
+            gradient: LinearGradient(
+              colors: [context.accent, context.accentSecondary],
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
             ),
@@ -774,10 +857,12 @@ class _SectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: context.cardColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: context.borderColor, width: 0.5),
+        boxShadow: context.softShadow,
       ),
       child: child,
     );
@@ -818,7 +903,7 @@ class _DocItem extends StatelessWidget {
                 height: 40,
                 decoration: BoxDecoration(
                   color: iconColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(icon, size: 20, color: iconColor),
               ),
@@ -852,7 +937,7 @@ class _DocItem extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: statusColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   status,
@@ -864,6 +949,100 @@ class _DocItem extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ),
+        if (!isLast)
+          Divider(
+            height: 1,
+            thickness: 0.5,
+            color: context.dividerColor,
+            indent: 14,
+            endIndent: 14,
+          ),
+      ],
+    );
+  }
+}
+
+// ── CHAT ITEM ───────────────────────────────────────────────────────────────
+
+class _ChatItem extends StatelessWidget {
+  final String title;
+  final String preview;
+  final String time;
+  final bool hasDoc;
+  final bool isLast;
+  final VoidCallback onTap;
+
+  const _ChatItem({
+    required this.title,
+    required this.preview,
+    required this.time,
+    required this.hasDoc,
+    required this.onTap,
+    this.isLast = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF7B5EA7).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    hasDoc
+                        ? Icons.description_outlined
+                        : Icons.chat_bubble_outline_rounded,
+                    size: 20,
+                    color: const Color(0xFF7B5EA7),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          color: context.textPrimary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        preview,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: context.textSecondary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  time,
+                  style: TextStyle(fontSize: 12, color: context.textSecondary),
+                ),
+              ],
+            ),
           ),
         ),
         if (!isLast)
@@ -1145,21 +1324,21 @@ class _HoverMenuTileState extends State<_HoverMenuTile> {
       onExit: (_) => setState(() => _hover = false),
       child: InkWell(
         onTap: widget.onTap,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
             color: _hover
-                ? const Color(0xFFD4AF6A).withValues(alpha: 0.08)
+                ? context.accent.withValues(alpha: 0.08)
                 : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
             children: [
               Icon(
                 widget.icon,
                 size: 20,
-                color: const Color(0xFFD4AF6A).withValues(alpha: 0.85),
+                color: context.accent.withValues(alpha: 0.85),
               ),
               const SizedBox(width: 12),
               Text(

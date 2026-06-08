@@ -19,20 +19,25 @@ class DashboardQuickAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: context.cardColor,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        splashColor: color.withValues(alpha: 0.08),
-        highlightColor: Colors.transparent,
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: context.borderColor, width: 0.5),
-          ),
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: context.softShadow,
+      ),
+      child: Material(
+        color: context.cardColor,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          splashColor: color.withValues(alpha: 0.08),
+          highlightColor: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: context.borderColor, width: 0.5),
+            ),
           child: Row(
             children: [
               Container(
@@ -75,6 +80,7 @@ class DashboardQuickAction extends StatelessWidget {
               ),
             ],
           ),
+        ),
         ),
       ),
     );

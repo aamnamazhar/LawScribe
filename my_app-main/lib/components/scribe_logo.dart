@@ -1,5 +1,48 @@
 import 'package:flutter/material.dart';
 
+/// Just the brand mark — the dot + slanted bar from the LawScribe logo, with no
+/// wordmark. Drop it into badges/avatars in place of a generic icon.
+class ScribeMark extends StatelessWidget {
+  final double size;
+  final Color color;
+
+  const ScribeMark({super.key, this.size = 24, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Dot
+          Container(
+            width: size * 0.26,
+            height: size * 0.26,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          SizedBox(width: size * 0.12),
+          // Slanted bar
+          Transform.rotate(
+            angle: -0.4,
+            child: Container(
+              width: size * 0.22,
+              height: size * 0.66,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(size * 0.16),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class ScribeLogo extends StatefulWidget {
   final double height;
   /// Force the wordmark color regardless of theme (e.g. splash always dark bg).
@@ -53,7 +96,7 @@ class _ScribeLogoState extends State<ScribeLogo> {
                 height: widget.height * 0.6,
                 decoration: BoxDecoration(
                   color: brandBlue,
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(8),
                 ),
               ),
             ),

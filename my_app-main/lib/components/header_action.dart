@@ -31,7 +31,7 @@ class _HeaderActionState extends State<HeaderAction> {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: isHovering ? Colors.white.withValues(alpha: 0.15) : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
             children: [

@@ -1,8 +1,15 @@
 import os
+import sys
 import datetime
 from fastapi import HTTPException
 from app.utils.hashing import generate_file_hash
 from app.core.firebase import get_db, get_bucket
+
+# Shared at-rest encryption helper (lives in the AI package).
+_AI_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../AI"))
+if _AI_DIR not in sys.path:
+    sys.path.insert(0, _AI_DIR)
+from crypto import encrypt_bytes
 
 UPLOAD_DIR = os.path.abspath("uploads")
 USE_FIREBASE_STORAGE = os.getenv("USE_FIREBASE_STORAGE", "false").lower() == "true"
@@ -57,8 +64,11 @@ def save_document(file):
     if os.path.commonpath([os.path.abspath(file_path), UPLOAD_DIR]) != UPLOAD_DIR:
         raise HTTPException(status_code=400, detail="Invalid upload path")
 
+    # Encrypt at rest (no-op unless FILE_ENCRYPTION_KEY is set). The hash and
+    # Firebase copy stay based on the original bytes, so verification is
+    # unaffected and only the local disk copy is ciphertext.
     with open(file_path, "wb") as f:
-        f.write(file_bytes)
+        f.write(encrypt_bytes(file_bytes))
 
     storage_url = f"local://{file_path}"
 

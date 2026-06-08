@@ -31,14 +31,18 @@ CLAUSE_TYPES = [
 ]
 
 # load model and tokenizer once — path relative to this file, not CWD
-_MODEL_PATH = os.path.join(_AI_DIR, "clause_model")
+_MODEL_PATH = os.path.join(_AI_DIR, "clause_model_v2")  # improved: contract-level split, sentence-pair encoding, threshold-tuned
+
+# decision threshold tuned on the validation set for the v2 model
+CLAUSE_PRESENT_THRESHOLD = 0.64
+
 print("Loading clause detection model...")
 tokenizer = AutoTokenizer.from_pretrained(_MODEL_PATH)
 model = AutoModelForSequenceClassification.from_pretrained(_MODEL_PATH)
 model.eval()
 print("Model loaded!")
 
-def detect_clauses(text, chunk_size=1500, overlap=200):
+def detect_clauses(text, chunk_size=3000, overlap=300, max_chunks=8):
     """
     Given a document text, returns a list of clauses detected
     in it with confidence scores.
@@ -48,6 +52,11 @@ def detect_clauses(text, chunk_size=1500, overlap=200):
     512 characters). For each window, all 41 clause types are
     scored in a single batched forward pass. Results are
     deduped by clause type — highest confidence wins.
+
+    Chunks are larger (3000 chars) and capped at max_chunks to
+    keep detection fast. The tokenizer truncates to 512 tokens
+    anyway, so wider windows just give us better coverage with
+    fewer passes.
     """
     if not text or not text.strip():
         return []
@@ -63,20 +72,27 @@ def detect_clauses(text, chunk_size=1500, overlap=200):
             chunks.append(text[start:start + chunk_size])
             start += step
 
+    # Cap the number of chunks to keep inference fast.
+    # Evenly sample from the document so we still cover beginning,
+    # middle, and end.
+    if len(chunks) > max_chunks:
+        indices = [round(i * (len(chunks) - 1) / (max_chunks - 1))
+                   for i in range(max_chunks)]
+        chunks = [chunks[i] for i in indices]
+
     # clause_type -> highest confidence seen across all chunks
     best = {}
 
     for chunk in chunks:
-        # Batch all 41 clause types in one forward pass per chunk
-        batch_inputs = [
-            clause_type + " [SEP] " + chunk for clause_type in CLAUSE_TYPES
-        ]
-
+        # Encode each clause type and the chunk as a sentence PAIR — this matches
+        # how the v2 model was trained (clause type = segment A, contract text =
+        # segment B), keeping train/serve encoding consistent.
         inputs = tokenizer(
-            batch_inputs,
+            CLAUSE_TYPES,                    # segment A: the clause type
+            [chunk] * len(CLAUSE_TYPES),     # segment B: the contract chunk
             max_length=512,
+            truncation="only_second",        # truncate the contract text, keep the clause label intact
             padding=True,
-            truncation=True,
             return_tensors="pt"
         )
 
@@ -86,7 +102,7 @@ def detect_clauses(text, chunk_size=1500, overlap=200):
             confidences = probabilities[:, 1].tolist()  # P("clause present")
 
         for clause_type, confidence in zip(CLAUSE_TYPES, confidences):
-            if confidence > 0.5 and confidence > best.get(clause_type, 0.0):
+            if confidence > CLAUSE_PRESENT_THRESHOLD and confidence > best.get(clause_type, 0.0):
                 best[clause_type] = confidence
 
     return [

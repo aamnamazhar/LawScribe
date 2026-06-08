@@ -11,8 +11,10 @@ if _AI_DIR not in sys.path:
 from rag import (
     index_document, query_document, generate_summary, generate_insights,
     query_document_stream, generate_summary_stream,
+    general_query, general_query_stream,
 )
 from clause_detector import detect_clauses
+from ledgar_classifier import classify_provision as _classify_provision
 from extract import extract_text
 from preprocess import clean_text
 
@@ -61,6 +63,16 @@ def answer_question_stream(question: str, doc_id: str):
     yield from query_document_stream(question, doc_id)
 
 
+def general_answer(question: str) -> str:
+    """Answer a general legal question with no document (hybrid grounding)."""
+    return general_query(question)
+
+
+def general_answer_stream(question: str):
+    """Streaming general Q&A — yields text chunks."""
+    yield from general_query_stream(question)
+
+
 def get_clauses(doc_id: str) -> list:
     """Detect legal clause types present in a previously uploaded document."""
     file_path = _resolve_doc_path(doc_id)
@@ -73,3 +85,8 @@ def get_insights(doc_id: str) -> list:
     """Return per-clause plain-English insights using Groq."""
     clauses = get_clauses(doc_id)
     return generate_insights(clauses, doc_id)
+
+
+def classify_provision_text(text: str) -> list:
+    """Classify a single contractual provision into LEDGAR categories (top 3)."""
+    return _classify_provision(text)

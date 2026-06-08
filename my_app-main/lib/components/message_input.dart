@@ -47,7 +47,7 @@ class _MessageInputBarState extends State<MessageInputBar> {
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['pdf', 'doc', 'docx'],
+        allowedExtensions: ['pdf', 'docx', 'txt'],
       );
       if (result != null && result.files.isNotEmpty) {
         widget.onSend('', result.files.first, null);
@@ -78,7 +78,7 @@ class _MessageInputBarState extends State<MessageInputBar> {
           children: [
             Icon(
               Icons.info_outline_rounded,
-              color: const Color(0xFFD4AF6A),
+              color: context.accent,
               size: 18,
             ),
             const SizedBox(width: 10),
@@ -96,7 +96,7 @@ class _MessageInputBarState extends State<MessageInputBar> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
           side: BorderSide(
-            color: const Color(0xFFD4AF6A).withValues(alpha: 0.25),
+            color: context.accent.withValues(alpha: 0.25),
             width: 1,
           ),
         ),
@@ -145,12 +145,12 @@ class _MessageInputBarState extends State<MessageInputBar> {
                 ),
                 categoryViewConfig: CategoryViewConfig(
                   iconColor: context.textSecondary,
-                  iconColorSelected: const Color(0xFFD4AF6A),
-                  indicatorColor: const Color(0xFFD4AF6A),
+                  iconColorSelected: context.accent,
+                  indicatorColor: context.accent,
                 ),
                 skinToneConfig: SkinToneConfig(
                   dialogBackgroundColor: context.popupColor,
-                  indicatorColor: const Color(0xFFD4AF6A),
+                  indicatorColor: context.accent,
                 ),
               ),
             ),
@@ -174,7 +174,7 @@ class _MessageInputBarState extends State<MessageInputBar> {
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
                   color: _focusNode.hasFocus
-                      ? const Color(0xFFD4AF6A).withValues(alpha: 0.4)
+                      ? context.accent.withValues(alpha: 0.4)
                       : context.borderColor,
                   width: 1,
                 ),
@@ -239,62 +239,39 @@ class _MessageInputBarState extends State<MessageInputBar> {
 
                   const SizedBox(width: 4),
 
-                  // Send button
+                  // Send button — circular, icon only
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     curve: Curves.easeOut,
+                    width: 40,
+                    height: 40,
                     decoration: BoxDecoration(
                       gradient: _hasText
-                          ? const LinearGradient(
-                              colors: [Color(0xFFD4AF6A), Color(0xFFF5D98B)],
+                          ? LinearGradient(
+                              colors: [context.accent, context.accentSecondary],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             )
                           : null,
-                      color: _hasText ? null : context.borderColor,
-                      borderRadius: BorderRadius.circular(14),
-                      boxShadow: _hasText
-                          ? [
-                              BoxShadow(
-                                color: const Color(0xFFD4AF6A).withValues(alpha: 0.3),
-                                blurRadius: 12,
-                                offset: const Offset(0, 3),
-                              ),
-                            ]
-                          : [],
+                      color: _hasText ? null : context.progressBg,
+                      shape: BoxShape.circle,
+                      boxShadow: _hasText ? context.heroShadow : [],
                     ),
                     child: Material(
                       color: Colors.transparent,
+                      shape: const CircleBorder(),
                       child: InkWell(
-                        borderRadius: BorderRadius.circular(14),
+                        customBorder: const CircleBorder(),
                         onTap: _hasText ? _sendMessage : null,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 10,
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.send_rounded,
-                                size: 16,
-                                color: _hasText
+                        child: Center(
+                          child: Icon(
+                            Icons.arrow_upward_rounded,
+                            size: 20,
+                            color: _hasText
+                                ? (context.isDark
                                     ? const Color(0xFF0A0A14)
-                                    : context.textHint,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Send',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: _hasText
-                                      ? const Color(0xFF0A0A14)
-                                      : context.textHint,
-                                ),
-                              ),
-                            ],
+                                    : Colors.white)
+                                : context.textHint,
                           ),
                         ),
                       ),
@@ -348,15 +325,15 @@ class _InputIconButtonState extends State<_InputIconButton> {
             margin: const EdgeInsets.symmetric(horizontal: 2),
             decoration: BoxDecoration(
               color: isHighlighted
-                  ? const Color(0xFFD4AF6A).withValues(alpha: 0.1)
+                  ? context.accent.withValues(alpha: 0.1)
                   : Colors.transparent,
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
               widget.icon,
               size: 20,
               color: isHighlighted
-                  ? const Color(0xFFD4AF6A)
+                  ? context.accent
                   : context.textSecondary,
             ),
           ),

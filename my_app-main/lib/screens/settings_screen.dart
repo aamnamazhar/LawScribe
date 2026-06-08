@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../theme_provider.dart';
+import '../components/scribe_logo.dart';
+import 'chat_search_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   final bool asDrawer;
@@ -53,64 +55,81 @@ class _SettingsScreenState extends State<SettingsScreen>
     Navigator.pushReplacementNamed(context, '/login');
   }
 
-  void toggleTheme() {
-    final newMode = themeNotifier.value == ThemeMode.light
-        ? ThemeMode.dark
-        : ThemeMode.light;
-    themeNotifier.value = newMode;
-    saveTheme(newMode);
+  void setTheme(ThemeMode mode) {
+    themeNotifier.value = mode;
+    saveTheme(mode);
   }
 
-  /// Placeholder for chat search. Real cross-conversation search needs message
-  /// persistence (Firestore-backed history), which we don't have yet — so for
-  /// now we just nudge the user toward the chat screen.
-  void _openSearchChats() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: context.popupColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(
-          'Search Chats',
-          style: TextStyle(
-            color: context.textPrimary,
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        content: Text(
-          "Cross-chat search isn't ready yet — your conversations live only "
-          "in the current session. Open a chat and ask me anything about "
-          "your contract directly.",
-          style: TextStyle(
-            color: context.textSecondary,
-            fontSize: 14,
-            height: 1.5,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              'Close',
-              style: TextStyle(color: context.textSecondary),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              Navigator.pushNamed(context, '/chat');
-            },
-            child: const Text(
-              'Open Chat',
-              style: TextStyle(
-                color: Color(0xFFD4AF6A),
-                fontWeight: FontWeight.w600,
+  /// Segmented System / Light / Dark theme picker.
+  Widget _themeSelector(ThemeMode current) {
+    final options = <(ThemeMode, IconData, String)>[
+      (ThemeMode.system, Icons.brightness_auto_outlined, 'System'),
+      (ThemeMode.light, Icons.light_mode_outlined, 'Light'),
+      (ThemeMode.dark, Icons.dark_mode_outlined, 'Dark'),
+    ];
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: context.cardColor,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: context.borderColor),
+      ),
+      child: Row(
+        children: [
+          for (final (m, icon, label) in options)
+            Expanded(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => setTheme(m),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                    color: current == m
+                        ? context.accent.withValues(alpha: 0.15)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(
+                        icon,
+                        size: 20,
+                        color: current == m
+                            ? context.accentStrong
+                            : context.textSecondary,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: current == m
+                              ? FontWeight.w600
+                              : FontWeight.w400,
+                          color: current == m
+                              ? context.textPrimary
+                              : context.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
-          ),
         ],
       ),
+    );
+  }
+
+  /// Open full-text search across the user's saved conversations.
+  void _openSearchChats() {
+    // If shown inside the chat's end-drawer, close it first so the search
+    // screen pushes cleanly onto the chat navigator.
+    if (widget.asDrawer) Navigator.pop(context);
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ChatSearchScreen()),
     );
   }
 
@@ -138,9 +157,9 @@ class _SettingsScreenState extends State<SettingsScreen>
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
-            const Icon(
+            Icon(
               Icons.security_outlined,
-              color: Color(0xFFD4AF6A),
+              color: context.accent,
               size: 22,
             ),
             const SizedBox(width: 10),
@@ -170,10 +189,10 @@ class _SettingsScreenState extends State<SettingsScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text(
+            child: Text(
               'Got it',
               style: TextStyle(
-                color: Color(0xFFD4AF6A),
+                color: context.accent,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -219,7 +238,7 @@ class _SettingsScreenState extends State<SettingsScreen>
               shape: BoxShape.circle,
               gradient: RadialGradient(
                 colors: [
-                  const Color(0xFFC9A84C).withValues(alpha: 0.14),
+                  context.accent.withValues(alpha: 0.14),
                   Colors.transparent,
                 ],
               ),
@@ -247,13 +266,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                       color: context.cardColor,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(color: context.borderColor, width: 1),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.1),
-                          blurRadius: 24,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
+                      boxShadow: context.softShadow,
                     ),
                     child: Row(
                       children: [
@@ -262,30 +275,22 @@ class _SettingsScreenState extends State<SettingsScreen>
                           padding: const EdgeInsets.all(2.5),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFD4AF6A), Color(0xFFF5D98B)],
+                            gradient: LinearGradient(
+                              colors: [context.accent, context.accentSecondary],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(
-                                  0xFFD4AF6A,
-                                ).withValues(alpha: 0.30),
-                                blurRadius: 14,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
+                            boxShadow: context.heroShadow,
                           ),
                           child: CircleAvatar(
                             radius: 26,
                             backgroundColor: context.popupColor,
                             child: Text(
                               initial,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.w700,
-                                color: Color(0xFFD4AF6A),
+                                color: context.accent,
                               ),
                             ),
                           ),
@@ -353,21 +358,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                   _settingsTile(
                     icon: Icons.chat_bubble_outline_rounded,
                     title: 'Your Chats',
-                    subtitle: 'View all conversations',
-                    onTap: () {
-                      if (widget.asDrawer) {
-                        Navigator.pop(
-                          context,
-                        ); // close drawer, chat is behind it
-                      } else {
-                        Navigator.pushNamed(context, '/chat');
-                      }
-                    },
-                  ),
-                  _settingsTile(
-                    icon: Icons.search_rounded,
-                    title: 'Search Chats',
-                    subtitle: 'Find messages quickly',
+                    subtitle: 'Search, resume, or delete conversations',
                     onTap: _openSearchChats,
                   ),
 
@@ -377,18 +368,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                   _sectionTitle('Appearance'),
                   ValueListenableBuilder<ThemeMode>(
                     valueListenable: themeNotifier,
-                    builder: (_, mode, _) {
-                      return _settingsTile(
-                        icon: mode == ThemeMode.light
-                            ? Icons.light_mode_outlined
-                            : Icons.dark_mode_outlined,
-                        title: mode == ThemeMode.light
-                            ? 'Light Mode'
-                            : 'Dark Mode',
-                        subtitle: 'Switch app theme',
-                        onTap: toggleTheme,
-                      );
-                    },
+                    builder: (_, mode, _) => _themeSelector(mode),
                   ),
 
                   const SizedBox(height: 28),
@@ -413,7 +393,25 @@ class _SettingsScreenState extends State<SettingsScreen>
                     icon: Icons.info_outline_rounded,
                     title: 'App Version',
                     subtitle: 'v1.0.0',
-                    onTap: () {},
+                    onTap: () => showAboutDialog(
+                      context: context,
+                      applicationName: 'LawScribe',
+                      applicationVersion: 'v1.0.0',
+                      applicationIcon: const ScribeMark(
+                        size: 36,
+                        color: Color(0xFF4C8DFF),
+                      ),
+                      applicationLegalese:
+                          '© 2026 LawScribe — AI-Powered Legal Document Assistant',
+                      children: const [
+                        SizedBox(height: 12),
+                        Text(
+                          'An AI assistant that summarizes contracts, detects and '
+                          'classifies clauses, answers questions grounded in your '
+                          'document, and verifies document integrity on the blockchain.',
+                        ),
+                      ],
+                    ),
                   ),
                   _settingsTile(
                     icon: Icons.security_outlined,
@@ -465,13 +463,6 @@ class _SettingsScreenState extends State<SettingsScreen>
               border: Border(
                 bottom: BorderSide(color: context.borderColor, width: 1),
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF7B5EA7).withValues(alpha: 0.08),
-                  blurRadius: 24,
-                  offset: const Offset(0, 4),
-                ),
-              ],
             ),
           ),
           leading: IconButton(
@@ -506,8 +497,8 @@ class _SettingsScreenState extends State<SettingsScreen>
             width: 3,
             height: 14,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFD4AF6A), Color(0xFFF5D98B)],
+              gradient: LinearGradient(
+                colors: [context.accent, context.accentSecondary],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
               ),
@@ -540,7 +531,7 @@ class _SettingsScreenState extends State<SettingsScreen>
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: context.cardColor,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isDanger
               ? Colors.redAccent.withValues(alpha: 0.15)
@@ -550,13 +541,13 @@ class _SettingsScreenState extends State<SettingsScreen>
       ),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           splashColor: isDanger
               ? Colors.redAccent.withValues(alpha: 0.08)
-              : const Color(0xFFD4AF6A).withValues(alpha: 0.06),
+              : context.accent.withValues(alpha: 0.06),
           highlightColor: Colors.transparent,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -570,14 +561,14 @@ class _SettingsScreenState extends State<SettingsScreen>
                     color: isDanger
                         ? Colors.redAccent.withValues(alpha: 0.10)
                         : const Color(0xFF7B5EA7).withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
                     icon,
                     size: 19,
                     color: isDanger
                         ? Colors.redAccent.withValues(alpha: 0.85)
-                        : const Color(0xFFD4AF6A).withValues(alpha: 0.85),
+                        : context.accent.withValues(alpha: 0.85),
                   ),
                 ),
 

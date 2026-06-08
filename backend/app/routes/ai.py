@@ -6,6 +6,8 @@ from pydantic import BaseModel
 from app.services.ai_service import (
     get_summary, answer_question, get_clauses, get_insights,
     get_summary_stream, answer_question_stream,
+    general_answer, general_answer_stream,
+    classify_provision_text,
 )
 from app.services.blockchain_service import verify_document_hash
 from app.services.firestore_service import on_ai_query
@@ -22,6 +24,14 @@ class QueryRequest(BaseModel):
 
 class DocRequest(BaseModel):
     doc_id: str
+
+
+class GeneralRequest(BaseModel):
+    question: str
+
+
+class ClassifyRequest(BaseModel):
+    text: str
 
 
 @router.get("/summary")
@@ -75,6 +85,18 @@ def get_document_insights(req: DocRequest, user=Depends(verify_firebase_token)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/classify-provision")
+def classify_provision_endpoint(req: ClassifyRequest, user=Depends(verify_firebase_token)):
+    try:
+        if not req.text or not req.text.strip():
+            raise HTTPException(status_code=400, detail="text is required")
+        return {"categories": classify_provision_text(req.text)}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 def _sse_generator(text_stream):
     """Wrap a text-chunk generator as Server-Sent Events."""
     for chunk in text_stream:
@@ -107,6 +129,41 @@ def query_document_stream(
         on_ai_query(uid, req.question)
         return StreamingResponse(
             _sse_generator(answer_question_stream(req.question, req.doc_id)),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/general")
+def general_question(
+    req: GeneralRequest,
+    authorization: Optional[str] = Header(None),
+):
+    uid = get_uid(authorization)
+    if not uid:
+        raise HTTPException(status_code=401, detail="Missing or invalid token")
+    try:
+        answer = general_answer(req.question)
+        on_ai_query(uid, req.question)
+        return {"answer": answer}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/general/stream")
+def general_question_stream(
+    req: GeneralRequest,
+    authorization: Optional[str] = Header(None),
+):
+    uid = get_uid(authorization)
+    if not uid:
+        raise HTTPException(status_code=401, detail="Missing or invalid token")
+    try:
+        on_ai_query(uid, req.question)
+        return StreamingResponse(
+            _sse_generator(general_answer_stream(req.question)),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )

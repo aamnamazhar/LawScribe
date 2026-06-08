@@ -10,10 +10,12 @@ import 'theme_provider.dart';
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/signup_screen.dart';
+import 'screens/verify_email_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/chat_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/blockchain_verify_screen.dart';
+import 'screens/clause_classifier_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -51,12 +53,14 @@ class LawScribeApp extends StatelessWidget {
             // Auth
             '/login': (_) => const LoginScreen(),
             '/signup': (_) => const SignupScreen(),
+            '/verify-email': (_) => const VerifyEmailScreen(),
 
             // Main App — wrapped with inactivity timeout
             '/dashboard': (_) => const _InactivityWrapper(child: DashboardScreen()),
             '/chat': (_) => const _InactivityWrapper(child: ChatScreen()),
             '/settings': (_) => const _InactivityWrapper(child: SettingsScreen()),
             '/verify': (_) => const _InactivityWrapper(child: BlockchainVerifyScreen()),  // for settings nav; chat uses push() with args
+            '/classify': (_) => const _InactivityWrapper(child: ClauseClassifierScreen()),
           },
         );
       },

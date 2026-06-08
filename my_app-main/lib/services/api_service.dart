@@ -10,7 +10,7 @@ class ApiService {
   // The HTTP default below is for local development only.
   static const String baseUrl = String.fromEnvironment(
     "BACKEND_URL",
-    defaultValue: "http://192.168.1.9:8000",
+    defaultValue: "http://192.168.1.4:8000",
   );
 
   static const _timeout = Duration(seconds: 60);
@@ -108,6 +108,22 @@ class ApiService {
     throw Exception("Insights failed: ${response.body}");
   }
 
+  // ── Provision Classification (LEDGAR) ─────────────────────────────────────
+
+  static Future<List<dynamic>> classifyProvision(String text) async {
+    final uri = Uri.parse("$baseUrl/ai/classify-provision");
+    final headers = await _authHeaders();
+    final response = await http.post(
+      uri,
+      headers: headers,
+      body: jsonEncode({"text": text}),
+    ).timeout(_aiTimeout);
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body)["categories"];
+    }
+    throw Exception("Provision classification failed: ${response.body}");
+  }
+
   // ── Streaming Summary (SSE) ───────────────────────────────────────────────
 
   static Stream<String> getSummaryStream(String docId) async* {
@@ -140,6 +156,23 @@ class ApiService {
 
     if (response.statusCode != 200) {
       throw Exception("Query stream failed: ${response.statusCode}");
+    }
+
+    yield* _parseSseStream(response.stream);
+  }
+
+  // ── Streaming General Q&A — no document (SSE) ────────────────────────────
+
+  static Stream<String> generalQueryStream(String question) async* {
+    final uri = Uri.parse("$baseUrl/ai/general/stream");
+    final headers = await _authHeaders();
+    final request = http.Request("POST", uri)
+      ..headers.addAll(headers)
+      ..body = jsonEncode({"question": question});
+    final response = await http.Client().send(request);
+
+    if (response.statusCode != 200) {
+      throw Exception("General query stream failed: ${response.statusCode}");
     }
 
     yield* _parseSseStream(response.stream);

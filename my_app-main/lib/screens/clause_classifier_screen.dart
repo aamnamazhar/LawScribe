@@ -1,60 +1,46 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../services/api_service.dart';
 import '../theme_provider.dart';
 import '../components/scribe_logo.dart';
 
-class BlockchainVerifyScreen extends StatefulWidget {
-  final String? docId;
-  final String? fileHash;
-  final String? blockchainTx;
+class ClauseClassifierScreen extends StatefulWidget {
+  /// Optional clause text to pre-fill (e.g. when opened from another screen).
+  final String? initialText;
 
-  const BlockchainVerifyScreen({
-    super.key,
-    this.docId,
-    this.fileHash,
-    this.blockchainTx,
-  });
+  const ClauseClassifierScreen({super.key, this.initialText});
 
   @override
-  State<BlockchainVerifyScreen> createState() => _BlockchainVerifyScreenState();
+  State<ClauseClassifierScreen> createState() => _ClauseClassifierScreenState();
 }
 
-class _BlockchainVerifyScreenState extends State<BlockchainVerifyScreen> {
-  late final TextEditingController _docIdController;
-  late final TextEditingController _hashController;
+class _ClauseClassifierScreenState extends State<ClauseClassifierScreen> {
+  late final TextEditingController _textController;
 
   bool _loading = false;
-  bool? _verified;
+  List<dynamic>? _results;
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    _docIdController = TextEditingController(text: widget.docId ?? '');
-    _hashController = TextEditingController(text: widget.fileHash ?? '');
-
-    // Auto-verify if both values were passed in
-    if (widget.docId != null && widget.fileHash != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _verify());
+    _textController = TextEditingController(text: widget.initialText ?? '');
+    if ((widget.initialText ?? '').trim().isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _classify());
     }
   }
 
   @override
   void dispose() {
-    _docIdController.dispose();
-    _hashController.dispose();
+    _textController.dispose();
     super.dispose();
   }
 
-  Future<void> _verify() async {
-    final docId = _docIdController.text.trim();
-    final hash = _hashController.text.trim();
-
-    if (docId.isEmpty || hash.isEmpty) {
+  Future<void> _classify() async {
+    final text = _textController.text.trim();
+    if (text.isEmpty) {
       setState(() {
-        _error = 'Please enter both Document ID and File Hash.';
-        _verified = null;
+        _error = 'Please paste a clause to classify.';
+        _results = null;
       });
       return;
     }
@@ -62,20 +48,20 @@ class _BlockchainVerifyScreenState extends State<BlockchainVerifyScreen> {
     setState(() {
       _loading = true;
       _error = null;
-      _verified = null;
+      _results = null;
     });
 
     try {
-      final result = await ApiService.verifyDocument(docId, hash);
+      final res = await ApiService.classifyProvision(text);
       if (!mounted) return;
       setState(() {
-        _verified = result;
+        _results = res;
         _loading = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = 'Verification failed: $e';
+        _error = 'Classification failed: $e';
         _loading = false;
       });
     }
@@ -117,7 +103,7 @@ class _BlockchainVerifyScreenState extends State<BlockchainVerifyScreen> {
                 ),
                 const SizedBox(width: 12),
                 Text(
-                  'Blockchain Verification',
+                  'Clause Classifier',
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w700,
@@ -129,14 +115,14 @@ class _BlockchainVerifyScreenState extends State<BlockchainVerifyScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Verify the integrity of a document by checking its hash against the blockchain record.',
+              'Paste a single clause or provision and the AI will identify its standard legal category.',
               style: TextStyle(
                 fontSize: 14,
                 color: context.textSecondary,
                 height: 1.5,
               ),
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 20),
 
             // Info card
             Container(
@@ -144,21 +130,19 @@ class _BlockchainVerifyScreenState extends State<BlockchainVerifyScreen> {
               decoration: BoxDecoration(
                 color: const Color(0xFF4A90D9).withAlpha(20),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: const Color(0xFF4A90D9).withAlpha(40),
-                ),
+                border: Border.all(color: const Color(0xFF4A90D9).withAlpha(40)),
               ),
               child: Row(
                 children: [
                   const Icon(
-                    Icons.info_outline_rounded,
+                    Icons.category_outlined,
                     color: Color(0xFF4A90D9),
                     size: 20,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Document hashes are recorded immutably on the Ethereum blockchain at upload time. This screen lets you verify that a document has not been altered.',
+                      'Trained on the LEDGAR benchmark, the classifier recognizes 100 common contract provision types. For best results, paste one clause at a time.',
                       style: TextStyle(
                         fontSize: 13,
                         color: context.textPrimary,
@@ -171,9 +155,9 @@ class _BlockchainVerifyScreenState extends State<BlockchainVerifyScreen> {
             ),
             const SizedBox(height: 24),
 
-            // Document ID field
+            // Clause input
             Text(
-              'Document ID',
+              'Clause text',
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -182,38 +166,26 @@ class _BlockchainVerifyScreenState extends State<BlockchainVerifyScreen> {
             ),
             const SizedBox(height: 8),
             TextField(
-              controller: _docIdController,
-              style: TextStyle(color: context.textPrimary, fontSize: 14),
+              controller: _textController,
+              maxLines: 6,
+              style: TextStyle(
+                color: context.textPrimary,
+                fontSize: 14,
+                height: 1.4,
+              ),
               decoration: _inputDecoration(
                 context,
-                'SHA-256 hash from upload response',
+                'e.g. "This Agreement shall be governed by the laws of the State of New York."',
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
 
-            // File Hash field
-            Text(
-              'File Hash',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: context.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _hashController,
-              style: TextStyle(color: context.textPrimary, fontSize: 14),
-              decoration: _inputDecoration(context, 'SHA-256 hash of the file'),
-            ),
-            const SizedBox(height: 28),
-
-            // Verify button
+            // Classify button
             SizedBox(
               width: double.infinity,
               height: 52,
               child: ElevatedButton(
-                onPressed: _loading ? null : _verify,
+                onPressed: _loading ? null : _classify,
                 style: ElevatedButton.styleFrom(
                   padding: EdgeInsets.zero,
                   backgroundColor: Colors.transparent,
@@ -253,13 +225,13 @@ class _BlockchainVerifyScreenState extends State<BlockchainVerifyScreen> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(
-                                Icons.verified_outlined,
+                                Icons.auto_awesome_outlined,
                                 color: Color(0xFF0A0A14),
                                 size: 20,
                               ),
                               SizedBox(width: 8),
                               Text(
-                                'Verify on Blockchain',
+                                'Classify Clause',
                                 style: TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w700,
@@ -275,69 +247,7 @@ class _BlockchainVerifyScreenState extends State<BlockchainVerifyScreen> {
             ),
             const SizedBox(height: 24),
 
-            // Blockchain Tx Hash (if available from upload)
-            if (widget.blockchainTx != null) ...[
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: context.cardColor,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: context.borderColor),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Transaction Hash',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: context.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            widget.blockchainTx!,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: context.textPrimary,
-                              fontFamily: 'monospace',
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 2,
-                          ),
-                        ),
-                        IconButton(
-                          icon: Icon(
-                            Icons.copy_rounded,
-                            size: 18,
-                            color: context.textSecondary,
-                          ),
-                          onPressed: () {
-                            Clipboard.setData(
-                              ClipboardData(text: widget.blockchainTx!),
-                            );
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Transaction hash copied'),
-                                duration: Duration(seconds: 2),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
-
-            // Result
-            if (_verified != null) _buildResultCard(_verified!),
+            if (_results != null) _buildResults(_results!),
             if (_error != null) _buildErrorCard(_error!),
           ],
         ),
@@ -345,68 +255,84 @@ class _BlockchainVerifyScreenState extends State<BlockchainVerifyScreen> {
     );
   }
 
-  Widget _buildResultCard(bool verified) {
-    final color = verified ? const Color(0xFF4CAF82) : const Color(0xFFFF6B6B);
-    final icon = verified ? Icons.check_circle_rounded : Icons.cancel_rounded;
-    final title = verified ? 'Verified' : 'Not Verified';
-    final subtitle = verified
-        ? 'This document hash matches the blockchain record. The document has not been altered since upload.'
-        : 'The hash does not match the blockchain record. The document may have been modified, or was never logged.';
+  Widget _buildResults(List<dynamic> results) {
+    if (results.isEmpty) {
+      return _buildErrorCard('No category could be determined for this text.');
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Predicted categories',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: context.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 12),
+        ...results.asMap().entries.map((entry) {
+          final i = entry.key;
+          final r = entry.value as Map<String, dynamic>;
+          final category = (r['category'] ?? '').toString();
+          final conf = (r['confidence'] is num)
+              ? (r['confidence'] as num).toDouble()
+              : 0.0;
+          return _categoryCard(category, conf, isTop: i == 0);
+        }),
+      ],
+    );
+  }
 
+  Widget _categoryCard(String category, double confidence, {required bool isTop}) {
+    final color = isTop ? context.accent : context.textSecondary;
     return Container(
-      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color.withAlpha(20),
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withAlpha(50)),
+        border: Border.all(
+          color: isTop ? context.accent.withAlpha(90) : context.borderColor,
+        ),
       ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: color, size: 32),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: color,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: context.textSecondary,
-                    height: 1.4,
-                  ),
-                ),
-                if (verified) ...[
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.access_time_rounded,
-                        size: 14,
-                        color: context.textSecondary,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Immutable record on Ethereum',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: context.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+          Row(
+            children: [
+              if (isTop) ...[
+                Icon(Icons.star_rounded, size: 18, color: context.accent),
+                const SizedBox(width: 6),
               ],
+              Expanded(
+                child: Text(
+                  category,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: isTop ? FontWeight.w700 : FontWeight.w600,
+                    color: context.textPrimary,
+                  ),
+                ),
+              ),
+              Text(
+                '${confidence.toStringAsFixed(1)}%',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: (confidence / 100).clamp(0.0, 1.0),
+              minHeight: 6,
+              backgroundColor: context.borderColor,
+              valueColor: AlwaysStoppedAnimation<Color>(color),
             ),
           ),
         ],
@@ -459,23 +385,6 @@ class _BlockchainVerifyScreenState extends State<BlockchainVerifyScreen> {
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: context.accent, width: 1.4),
-      ),
-      suffixIcon: IconButton(
-        icon: Icon(
-          Icons.content_paste_rounded,
-          size: 18,
-          color: context.textSecondary,
-        ),
-        onPressed: () async {
-          final data = await Clipboard.getData(Clipboard.kTextPlain);
-          if (data?.text != null) {
-            if (hint.contains('file')) {
-              _hashController.text = data!.text!;
-            } else {
-              _docIdController.text = data!.text!;
-            }
-          }
-        },
       ),
     );
   }

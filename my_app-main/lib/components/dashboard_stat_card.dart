@@ -27,6 +27,7 @@ class DashboardStatCard extends StatelessWidget {
         color: context.cardColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: context.borderColor, width: 0.5),
+        boxShadow: context.softShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -39,7 +40,7 @@ class DashboardStatCard extends StatelessWidget {
               height: 34,
               decoration: BoxDecoration(
                 color: color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(9),
+                borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(icon, size: 18, color: color),
             ),
@@ -47,14 +48,18 @@ class DashboardStatCard extends StatelessWidget {
 
           const Spacer(),
 
-          // Value
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 30,
-              fontWeight: FontWeight.w500,
-              color: context.textPrimary,
-              height: 1,
+          // Value — scales down rather than overflowing in tight cells
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 30,
+                fontWeight: FontWeight.w500,
+                color: context.textPrimary,
+                height: 1,
+              ),
             ),
           ),
 

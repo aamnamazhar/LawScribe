@@ -32,7 +32,7 @@ class _AppBarHoverIconState extends State<AppBarHoverIcon> {
           color: _hovering
               ? Theme.of(context).dividerColor.withValues(alpha: 0.12)
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(12),
         ),
         child: IconButton(
           icon: Icon(widget.icon, color: color),

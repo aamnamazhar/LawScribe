@@ -28,6 +28,8 @@ env/
 # --- AI / models / data ---
 AI/vectorstore/
 AI/clause_model/
+AI/clause_model_v2/
+AI/ledgar_model/
 AI/__pycache__/
 backend/uploads/
 backend/app/__pycache__/
@@ -40,3 +42,7 @@ backend/app/__pycache__/
 
 # --- Node / Flutter web build (handled also in my_app-main/.gitignore) ---
 node_modules/
+
+# --- Thesis docs & Colab training notebooks (not part of the app) ---
+docs/
+*.ipynb

@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'package:my_app/services/api_service.dart';
+import 'package:my_app/services/chat_store.dart';
+import 'package:my_app/services/report_service.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
@@ -12,93 +14,11 @@ import '../theme_provider.dart';
 import '../screens/dashboard_screen.dart';
 import '../screens/settings_screen.dart';
 import '../screens/blockchain_verify_screen.dart';
+import '../data/clause_info.dart';
 
-// ── Layman-friendly clause metadata ─────────────────────────────────────────
-//
-// For each of the 41 CUAD clause types the model can detect, we store:
-//   - a plain-English name (no legal jargon)
-//   - a one-line explanation a non-lawyer can understand
-//   - a risk level (low/medium/high) used to render a 🟢/🟡/🔴 dot
-//   - a category used to group clauses into sections in the chat response
-//
-// Edit these freely — they only affect how clauses are displayed, not how
-// they're detected.
-class _ClauseInfo {
-  final String plainName;
-  final String layExplanation;
-  final String category; // key | money | risk | restrict | exit | legal
-  final String risk;     // low | medium | high
-  const _ClauseInfo(this.plainName, this.layExplanation, this.category, this.risk);
-}
+// Clause metadata (plain names, risk levels, categories) lives in
+// ../data/clause_info.dart so it can be shared with the PDF report builder.
 
-const Map<String, _ClauseInfo> _clauseInfo = {
-  // ── Key details ──────────────────────────────────────────────────────────
-  'Document Name':   _ClauseInfo('Type of contract',  'Tells you what kind of agreement this actually is.', 'key', 'low'),
-  'Parties':         _ClauseInfo("Who's involved",    'The names of everyone signing this contract.', 'key', 'low'),
-  'Agreement Date':  _ClauseInfo('Date signed',       'The day this contract was put together.', 'key', 'low'),
-  'Effective Date':  _ClauseInfo('Start date',        'When the contract actually kicks in.', 'key', 'low'),
-  'Expiration Date': _ClauseInfo('End date',          'When the contract is set to end.', 'key', 'low'),
-  'Renewal Term':    _ClauseInfo('Auto-renewal',      'Whether the contract automatically renews itself.', 'key', 'medium'),
-
-  // ── Money & obligations ──────────────────────────────────────────────────
-  'License Grant':           _ClauseInfo('What you can use',         'The specific rights you are being given (e.g. to use software or IP).', 'money', 'low'),
-  'Revenue/Profit Sharing':  _ClauseInfo('Profit split',             'How money or profits get divided between the parties.', 'money', 'medium'),
-  'Minimum Commitment':      _ClauseInfo('Minimum you must spend',   'A guaranteed minimum amount you have to pay or buy.', 'money', 'medium'),
-  'Volume Restriction':      _ClauseInfo('Volume limits',            'Caps on how much you can buy, sell or use.', 'money', 'medium'),
-  'Price Restrictions':      _ClauseInfo('Pricing rules',            'Limits on what you can charge or how prices can change.', 'money', 'medium'),
-  'Most Favored Nation':     _ClauseInfo('Best-deal guarantee',      'Promise that you get the best terms anyone else gets.', 'money', 'medium'),
-  'Unlimited/All-You-Can-Eat-License': _ClauseInfo('Unlimited use',  'Use as much as you want with no caps.', 'money', 'low'),
-
-  // ── Risk & liability ─────────────────────────────────────────────────────
-  'Cap On Liability':    _ClauseInfo('Damages limit',         'Maximum amount you could be sued for if something goes wrong.', 'risk', 'medium'),
-  'Uncapped Liability':  _ClauseInfo('UNLIMITED liability',   'No limit on how much you could owe — read this carefully.', 'risk', 'high'),
-  'Liquidated Damages':  _ClauseInfo('Pre-set penalties',     'Specific dollar amounts you owe if you break the contract.', 'risk', 'high'),
-  'Insurance':           _ClauseInfo('Insurance required',    'Type and amount of insurance you must carry.', 'risk', 'medium'),
-  'Warranty Duration':   _ClauseInfo('Warranty length',       'How long the product or service is guaranteed for.', 'risk', 'low'),
-  'Covenant Not To Sue': _ClauseInfo("Can't sue",             'You agree not to take legal action over certain things.', 'risk', 'high'),
-
-  // ── Restrictions ─────────────────────────────────────────────────────────
-  'Anti-Assignment':                  _ClauseInfo("Can't transfer",          "You may not give your contract rights to someone else.", 'restrict', 'medium'),
-  'Non-Compete':                      _ClauseInfo("Can't compete",           "You can't work for competitors or start a similar business.", 'restrict', 'high'),
-  'Exclusivity':                      _ClauseInfo('Exclusive deal',          'You must work only with this party — no competitors allowed.', 'restrict', 'high'),
-  'Non-Disparagement':                _ClauseInfo('No bad-mouthing',         "You can't publicly criticize the other party.", 'restrict', 'medium'),
-  'No-Solicit Of Customers':          _ClauseInfo("Can't poach customers",   "You can't try to take their customers after the deal ends.", 'restrict', 'medium'),
-  'No-Solicit Of Employees':          _ClauseInfo("Can't poach staff",       "You can't try to hire away their employees.", 'restrict', 'medium'),
-  'Non-Transferable License':         _ClauseInfo('License is yours alone',  "You can't share or transfer the rights you got.", 'restrict', 'medium'),
-  'Competitive Restriction Exception':_ClauseInfo('Compete-ban exception',   'A specific carve-out from the non-compete rule.', 'restrict', 'low'),
-
-  // ── Ending the contract ──────────────────────────────────────────────────
-  'Termination For Convenience':       _ClauseInfo('Easy exit option',     'Either side can end the contract for any reason with notice.', 'exit', 'medium'),
-  'Notice Period To Terminate Renewal':_ClauseInfo('Cancellation notice',  'How early you must tell them you want out before auto-renewal.', 'exit', 'medium'),
-  'Post-Termination Services':         _ClauseInfo('After-end obligations','What you still have to do after the contract ends.', 'exit', 'medium'),
-
-  // ── Legal & governance ───────────────────────────────────────────────────
-  'Governing Law':                  _ClauseInfo('Which laws apply',         'The state or country whose laws govern any disputes.', 'legal', 'medium'),
-  'Audit Rights':                   _ClauseInfo('Right to inspect records', 'They can check your books or records for compliance.', 'legal', 'medium'),
-  'Change Of Control':              _ClauseInfo('What happens if sold',     'What happens to the contract if your company is acquired.', 'legal', 'medium'),
-  'Third Party Beneficiary':        _ClauseInfo('Outside parties involved', 'Someone not signing has rights under this contract.', 'legal', 'medium'),
-  'Joint Ip Ownership':             _ClauseInfo('Shared IP ownership',      'Both parties co-own intellectual property created together.', 'legal', 'medium'),
-  'Ip Ownership Assignment':        _ClauseInfo('IP ownership transfer',    'Who ends up owning the intellectual property.', 'legal', 'high'),
-  'Source Code Escrow':             _ClauseInfo('Code held by 3rd party',   'Source code is kept by an escrow agent in case of issues.', 'legal', 'low'),
-  'Affiliate License-Licensee':     _ClauseInfo('Affiliate use',            "Whether the licensee's affiliates can use the rights too.", 'legal', 'low'),
-  'Affiliate License-Licensor':     _ClauseInfo('Affiliate scope',          "Whether the licensor's affiliates are part of the deal.", 'legal', 'low'),
-  'Irrevocable Or Perpetual License':_ClauseInfo('Forever license',         "License that can't be taken back, ever.", 'legal', 'low'),
-  'Rofr/Rofo/Rofn':                 _ClauseInfo('First-right options',      'Right to be offered something first before anyone else.', 'legal', 'medium'),
-};
-
-const Map<String, String> _categoryHeaders = {
-  'key':      '📋 KEY DETAILS',
-  'money':    "💼 WHAT YOU'RE GETTING / PAYING",
-  'risk':     '⚠️ RISK & LIABILITY',
-  'restrict': '🚫 RESTRICTIONS ON YOU',
-  'exit':     '🚪 ENDING THE CONTRACT',
-  'legal':    '⚖️ LEGAL & GOVERNANCE',
-  'other':    '📌 OTHER',
-};
-
-const List<String> _categoryOrder = [
-  'key', 'money', 'risk', 'restrict', 'exit', 'legal', 'other',
-];
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -117,10 +37,86 @@ class _ChatScreenState extends State<ChatScreen> {
   String? _uploadedFileName;
   bool _showScrollFab = false;
 
+  // Firestore id of the conversation being persisted. Null until the first
+  // message creates the chat (or until a past chat is opened from the drawer).
+  String? _chatId;
+  bool _routeArgsHandled = false;
+
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // If we were opened with a chatId argument, load that conversation once.
+    if (_routeArgsHandled) return;
+    _routeArgsHandled = true;
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is String && args.isNotEmpty) {
+      _loadChat(args);
+    }
+  }
+
+  /// Load a previously saved chat: restore its messages and document context.
+  Future<void> _loadChat(String chatId) async {
+    final meta = await ChatStore.loadChatMeta(chatId);
+    final loaded = await ChatStore.loadMessages(chatId);
+    if (!mounted) return;
+    setState(() {
+      _chatId = chatId;
+      if (meta != null) {
+        currentDocId = meta['docId'] as String?;
+        currentDocumentPath = meta['docPath'] as String?;
+        currentBlockchainTx = meta['blockchainTx'] as String?;
+        _uploadedFileName = meta['docName'] as String?;
+      }
+      if (loaded.isNotEmpty) {
+        messages
+          ..clear()
+          ..addAll(loaded.map((m) => Map<String, dynamic>.from(m)));
+      }
+    });
+    _scrollToBottom();
+  }
+
+  // ── Persistence helpers ────────────────────────────────────────────────────
+
+  /// Ensure a chat document exists, creating one on first use.
+  Future<String?> _ensureChat({String? title}) async {
+    _chatId ??= await ChatStore.createChat(
+      title: title,
+      docId: currentDocId,
+      docName: _uploadedFileName,
+      docPath: currentDocumentPath,
+    );
+    return _chatId;
+  }
+
+  /// Persist a message and refresh the chat's metadata (preview + doc context).
+  Future<void> _saveMessage(
+    Map<String, dynamic> message, {
+    String? title,
+    String? lastMessage,
+  }) async {
+    final id = await _ensureChat(title: title);
+    if (id == null) return; // signed out or write rejected
+    await ChatStore.addMessage(id, message);
+    await ChatStore.updateMeta(id, {
+      'lastMessage': ?lastMessage,
+      if (currentDocId != null) 'docId': currentDocId,
+      if (_uploadedFileName != null) 'docName': _uploadedFileName,
+      if (currentDocumentPath != null) 'docPath': currentDocumentPath,
+      if (currentBlockchainTx != null) 'blockchainTx': currentBlockchainTx,
+    });
+  }
+
+  /// Short, human-friendly title derived from the first user message.
+  String _titleFrom(String text) {
+    final t = text.trim().replaceAll('\n', ' ');
+    return t.length <= 40 ? t : '${t.substring(0, 40)}…';
   }
 
   @override
@@ -139,15 +135,9 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  final List<Map<String, dynamic>> messages = [
-    {
-      'sender': 'ai',
-      'type': 'text',
-      'text':
-          'Hello! I\'m LawScribe AI ⚖️. Upload a legal document or ask me anything about contracts, clauses, or legal terms.\n\nNote: AI-generated analysis is for informational purposes only and does not constitute legal advice.',
-      'time': '10:00 AM',
-    },
-  ];
+  // Starts empty: the welcome hero is the greeting. Once the user sends a
+  // message, the conversation begins with no leftover canned greeting bubble.
+  final List<Map<String, dynamic>> messages = [];
 
   Future<void> sendMessage(
     String text,
@@ -180,6 +170,28 @@ class _ChatScreenState extends State<ChatScreen> {
 
     _scrollToBottom();
 
+    // Persist the user's message(s) so the conversation survives a restart.
+    if (text.trim().isNotEmpty) {
+      await _saveMessage(
+        {'sender': 'user', 'type': 'text', 'text': text, 'time': time},
+        title: _titleFrom(text),
+        lastMessage: text,
+      );
+    }
+    if (file != null) {
+      await _saveMessage(
+        {
+          'sender': 'user',
+          'type': 'file',
+          'fileName': file.name,
+          'fileSize': (file.size / 1024).toStringAsFixed(1),
+          'time': time,
+        },
+        title: file.name,
+        lastMessage: '📎 ${file.name}',
+      );
+    }
+
     if (file != null && file.path != null) {
       try {
         final response = await ApiService.uploadDocument(file.path!);
@@ -194,21 +206,23 @@ class _ChatScreenState extends State<ChatScreen> {
           currentBlockchainTx = data["file"]["blockchain_tx"];
           _uploadedFileName = file.name;
 
+          final uploadMsg = {
+            'sender': 'ai',
+            'type': 'text',
+            'text':
+                'Document uploaded successfully.\n'
+                'How can I help you with it?\n'
+                'Try: summarize, detect clauses, or ask any question about the document.',
+            'time': _formatTime(DateTime.now()),
+            'showVerify': true,
+            'docId': currentDocId,
+            'blockchainTx': currentBlockchainTx,
+          };
           setState(() {
             isTyping = false;
-            messages.add({
-              'sender': 'ai',
-              'type': 'text',
-              'text':
-                  'Document uploaded successfully.\n'
-                  'How can I help you with it?\n'
-                  'Try: summarize, detect clauses, or ask any question about the document.',
-              'time': _formatTime(DateTime.now()),
-              'showVerify': true,
-              'docId': currentDocId,
-              'blockchainTx': currentBlockchainTx,
-            });
+            messages.add(uploadMsg);
           });
+          await _saveMessage(uploadMsg, lastMessage: 'Document uploaded');
         } else {
           setState(() {
             isTyping = false;
@@ -243,9 +257,25 @@ class _ChatScreenState extends State<ChatScreen> {
 
     if (text.trim().isNotEmpty && currentDocId != null && currentDocumentPath != null) {
       await _handleDocumentQuery(text.trim());
-    } else {
-      _simulateAIReply();
+    } else if (text.trim().isNotEmpty) {
+      await _handleGeneralQuery(text.trim());
     }
+  }
+
+  /// Turn an exception into a short, human-readable message so the chat never
+  /// shows a raw stack trace — and never a blank bubble.
+  String _errorText(Object e) {
+    final s = e.toString();
+    if (s.contains('SocketException') ||
+        s.contains('Failed host lookup') ||
+        s.contains('Connection') ||
+        s.contains('ClientException') ||
+        s.contains('timed out') ||
+        s.contains('TimeoutException')) {
+      return "⚠️ Couldn't reach the server. Make sure the backend is running "
+          "and your device is on the same network, then try again.";
+    }
+    return "⚠️ Something went wrong. Please try again.";
   }
 
   Future<void> _handleDocumentQuery(String userText) async {
@@ -273,27 +303,54 @@ class _ChatScreenState extends State<ChatScreen> {
             ? ApiService.getSummaryStream(currentDocId!)
             : ApiService.queryDocumentStream(currentDocId!, userText);
 
-        // Add an empty AI message that we'll fill token-by-token
-        final msgIndex = messages.length;
-        setState(() {
-          isTyping = false;
-          messages.add({
-            'sender': 'ai',
-            'type': 'text',
-            'text': '',
-            'time': _formatTime(DateTime.now()),
-          });
-        });
-
+        // Keep the typing indicator until the first token, then fill a bubble
+        // word-by-word — no blank bubble while waiting.
+        int? msgIndex;
         await for (final token in stream) {
           if (!mounted) break;
-          setState(() {
-            messages[msgIndex]['text'] =
-                (messages[msgIndex]['text'] as String) + token;
-          });
+          if (msgIndex == null) {
+            msgIndex = messages.length;
+            setState(() {
+              isTyping = false;
+              messages.add({
+                'sender': 'ai',
+                'type': 'text',
+                'text': token,
+                'time': _formatTime(DateTime.now()),
+              });
+            });
+          } else {
+            final idx = msgIndex;
+            setState(() {
+              messages[idx]['text'] =
+                  (messages[idx]['text'] as String) + token;
+            });
+          }
           _scrollToBottom();
         }
         if (!mounted) return;
+
+        if (msgIndex == null) {
+          setState(() {
+            isTyping = false;
+            messages.add({
+              'sender': 'ai',
+              'type': 'text',
+              'text':
+                  "I couldn't generate a response for that. Please try again.",
+              'time': _formatTime(DateTime.now()),
+            });
+          });
+          _scrollToBottom();
+          return;
+        }
+
+        // Persist the completed answer once streaming finishes.
+        final finalText = messages[msgIndex]['text'] as String;
+        await _saveMessage(
+          Map<String, dynamic>.from(messages[msgIndex]),
+          lastMessage: finalText,
+        );
 
         _scrollToBottom();
         return;
@@ -319,15 +376,17 @@ class _ChatScreenState extends State<ChatScreen> {
 
       if (!mounted) return;
 
+      final aiMsg = {
+        'sender': 'ai',
+        'type': 'text',
+        'text': aiResponse,
+        'time': _formatTime(DateTime.now()),
+      };
       setState(() {
         isTyping = false;
-        messages.add({
-          'sender': 'ai',
-          'type': 'text',
-          'text': aiResponse,
-          'time': _formatTime(DateTime.now()),
-        });
+        messages.add(aiMsg);
       });
+      await _saveMessage(aiMsg, lastMessage: aiResponse);
 
       _scrollToBottom();
     } catch (e) {
@@ -338,7 +397,7 @@ class _ChatScreenState extends State<ChatScreen> {
         messages.add({
           'sender': 'ai',
           'type': 'text',
-          'text': 'Error getting response: $e',
+          'text': _errorText(e),
           'time': _formatTime(DateTime.now()),
         });
       });
@@ -355,87 +414,144 @@ class _ChatScreenState extends State<ChatScreen> {
           "clauses. Try asking me a question about it instead.";
     }
 
-    // Bucket clauses by category, preserving the model's confidence ordering
-    // within each bucket.
-    final Map<String, List<Map<String, dynamic>>> grouped = {
-      for (final cat in _categoryOrder) cat: [],
-    };
+    // Separate high-risk items from the rest
+    final List<Map<String, dynamic>> redFlags = [];
+    final List<Map<String, dynamic>> others = [];
 
     for (final c in clauses) {
       final type = c['clause_type'] as String;
-      final info = _clauseInfo[type];
-      final cat = info?.category ?? 'other';
-      grouped[cat]!.add({
+      final info = clauseInfo[type];
+      final entry = {
         'type': type,
         'confidence': c['confidence'],
         'info': info,
-      });
+      };
+      if (info?.risk == 'high') {
+        redFlags.add(entry);
+      } else {
+        others.add(entry);
+      }
     }
 
     final buffer = StringBuffer();
     final count = clauses.length;
-    buffer.writeln(
-      "I found $count important thing${count == 1 ? '' : 's'} in your contract.\n",
-    );
 
-    for (final cat in _categoryOrder) {
-      final items = grouped[cat]!;
-      if (items.isEmpty) continue;
-      buffer.writeln(_categoryHeaders[cat]);
-      for (final item in items) {
-        final info = item['info'] as _ClauseInfo?;
-        final risk = info?.risk ?? 'medium';
-        final dot = risk == 'high'
-            ? '🔴'
-            : risk == 'medium'
-                ? '🟡'
-                : '🟢';
+    // ── Quick verdict ──
+    if (redFlags.isEmpty) {
+      buffer.writeln('✅ Looks clean — $count clauses found, nothing high-risk.\n');
+    } else {
+      buffer.writeln(
+        '⚠️ Found $count clauses — ${redFlags.length} need your attention.\n',
+      );
+    }
+
+    // ── Red flags first (if any) ──
+    if (redFlags.isNotEmpty) {
+      buffer.writeln('🔴 WATCH OUT FOR:');
+      for (final item in redFlags) {
+        final info = item['info'] as ClauseInfo?;
         final name = info?.plainName ?? item['type'] as String;
         final desc = info?.layExplanation ?? '';
-        buffer.writeln('$dot $name');
-        if (desc.isNotEmpty) {
-          buffer.writeln('   $desc');
-        }
+        buffer.writeln('  • $name');
+        if (desc.isNotEmpty) buffer.writeln('    $desc');
+      }
+      buffer.writeln();
+    }
+
+    // ── Everything else as a simple bullet list ──
+    if (others.isNotEmpty) {
+      buffer.writeln('Also found:');
+      for (final item in others) {
+        final info = item['info'] as ClauseInfo?;
+        final name = info?.plainName ?? item['type'] as String;
+        buffer.writeln('  • $name');
       }
       buffer.writeln();
     }
 
     buffer.write(
-      '💡 Want to know what these actually SAY in your contract? '
-      'Type "give me insights" and I\'ll pull the exact wording for each one.',
+      '💡 Want details? Type "give me insights" and I\'ll explain '
+      'what each clause actually says in your contract.',
     );
 
     return buffer.toString();
   }
 
-  int _noDocReplyIndex = 0;
-
-  static const _noDocReplies = [
-    "Hey there! To get started, upload a legal document using the "
-        "attach button below. Once uploaded, I can summarize it, detect "
-        "clauses, explain risks, and answer any questions about it.",
-    "I'd love to help! I need a document to work with though — "
-        "tap the attach icon to upload a PDF, DOCX, or TXT file.",
-    "I'm built to analyze legal documents. Upload one and I can "
-        "break it down for you in plain English.",
-    "No document uploaded yet. Attach a contract and ask me to "
-        "summarize it, find clauses, or explain what it means.",
-  ];
-
-  void _simulateAIReply() {
-    final reply = _noDocReplies[_noDocReplyIndex % _noDocReplies.length];
-    _noDocReplyIndex++;
-
-    setState(() {
-      messages.add({
-        'sender': 'ai',
-        'type': 'text',
-        'text': reply,
-        'time': _formatTime(DateTime.now()),
-      });
-    });
-
+  /// Answer a general legal question when no document is loaded — streams a
+  /// hybrid response (grounded in LawScribe's clause definitions when relevant,
+  /// otherwise the model's general knowledge).
+  Future<void> _handleGeneralQuery(String userText) async {
+    // Keep the typing indicator visible until the first token arrives, then
+    // swap it for a real bubble that fills word-by-word (no blank bubble).
+    setState(() => isTyping = true);
     _scrollToBottom();
+
+    int? msgIndex;
+
+    try {
+      final stream = ApiService.generalQueryStream(userText);
+
+      await for (final token in stream) {
+        if (!mounted) break;
+        if (msgIndex == null) {
+          msgIndex = messages.length;
+          setState(() {
+            isTyping = false;
+            messages.add({
+              'sender': 'ai',
+              'type': 'text',
+              'text': token,
+              'time': _formatTime(DateTime.now()),
+            });
+          });
+        } else {
+          final idx = msgIndex;
+          setState(() {
+            messages[idx]['text'] =
+                (messages[idx]['text'] as String) + token;
+          });
+        }
+        _scrollToBottom();
+      }
+      if (!mounted) return;
+
+      if (msgIndex == null) {
+        // Stream produced nothing — show a notice, never silence.
+        setState(() {
+          isTyping = false;
+          messages.add({
+            'sender': 'ai',
+            'type': 'text',
+            'text': "I couldn't generate a response for that. Please try again.",
+            'time': _formatTime(DateTime.now()),
+          });
+        });
+        _scrollToBottom();
+        return;
+      }
+
+      final finalText = messages[msgIndex]['text'] as String;
+      await _saveMessage(
+        Map<String, dynamic>.from(messages[msgIndex]),
+        lastMessage: finalText,
+      );
+
+      _scrollToBottom();
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        isTyping = false;
+        messages.add({
+          'sender': 'ai',
+          'type': 'text',
+          'text': _errorText(e),
+          'time': _formatTime(DateTime.now()),
+        });
+      });
+
+      _scrollToBottom();
+    }
   }
 
   String _formatTime(DateTime now) {
@@ -502,7 +618,7 @@ class _ChatScreenState extends State<ChatScreen> {
           children: [
             Icon(
               Icons.info_outline_rounded,
-              color: const Color(0xFFD4AF6A),
+              color: context.accent,
               size: 18,
             ),
             const SizedBox(width: 10),
@@ -520,7 +636,7 @@ class _ChatScreenState extends State<ChatScreen> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
           side: BorderSide(
-            color: const Color(0xFFD4AF6A).withValues(alpha: 0.25),
+            color: context.accent.withValues(alpha: 0.25),
             width: 1,
           ),
         ),
@@ -576,8 +692,8 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                      color: Color(0xFFD4AF6A),
+                    borderSide: BorderSide(
+                      color: context.accent,
                       width: 1.4,
                     ),
                   ),
@@ -609,19 +725,13 @@ class _ChatScreenState extends State<ChatScreen> {
                         vertical: 10,
                       ),
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFD4AF6A), Color(0xFFF5D98B)],
+                        gradient: LinearGradient(
+                          colors: [context.accent, context.accentSecondary],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
-                        borderRadius: BorderRadius.circular(10),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFD4AF6A).withValues(alpha: 0.3),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: context.heroShadow,
                       ),
                       child: const Text(
                         'Save',
@@ -645,40 +755,38 @@ class _ChatScreenState extends State<ChatScreen> {
   // ── Welcome hero (empty state) ──────────────────────────────────────────
 
   Widget _buildWelcomeHero(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+    // Centered when there's room; scrolls instead of overflowing when the
+    // keyboard shrinks the available height.
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
             // Logo icon with pulse glow
             Container(
               width: 76,
               height: 76,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFD4AF6A), Color(0xFFF5D98B)],
+                gradient: LinearGradient(
+                  colors: [context.accent, context.accentSecondary],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFFD4AF6A).withValues(alpha: 0.35),
-                    blurRadius: 32,
-                    offset: const Offset(0, 10),
-                  ),
-                  BoxShadow(
-                    color: const Color(0xFF7B5EA7).withValues(alpha: 0.15),
-                    blurRadius: 48,
-                    offset: const Offset(0, 16),
-                  ),
-                ],
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: context.heroShadow,
               ),
-              child: const Icon(
-                Icons.balance_rounded,
-                color: Color(0xFF0A0A14),
-                size: 36,
+              child: Center(
+                child: ScribeMark(
+                  size: 36,
+                  color: context.isDark
+                      ? const Color(0xFF0A0A14)
+                      : Colors.white,
+                ),
               ),
             ),
 
@@ -740,6 +848,9 @@ class _ChatScreenState extends State<ChatScreen> {
               ],
             ),
           ],
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -749,7 +860,7 @@ class _ChatScreenState extends State<ChatScreen> {
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['pdf', 'doc', 'docx'],
+        allowedExtensions: ['pdf', 'docx', 'txt'],
       );
       if (result != null && result.files.isNotEmpty) {
         sendMessage('', result.files.first, null);
@@ -757,61 +868,128 @@ class _ChatScreenState extends State<ChatScreen> {
     } catch (_) {}
   }
 
-  // ── Document status strip ──────────────────────────────────────────────────
 
-  Widget _buildDocumentStrip(BuildContext context) {
-    if (_uploadedFileName == null) return const SizedBox.shrink();
+  // ── Export the current document's analysis as a shareable PDF ──────────────
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFD4AF6A).withValues(alpha: 0.08),
-        border: Border(
-          bottom: BorderSide(
-            color: const Color(0xFFD4AF6A).withValues(alpha: 0.15),
-            width: 1,
+  Future<void> _exportReport() async {
+    if (currentDocId == null) return;
+
+    // Blocking progress dialog — fetching insights can take a few seconds.
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => Dialog(
+        backgroundColor: context.popupColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: context.accent,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Text(
+                'Building your report…',
+                style: TextStyle(color: context.textPrimary, fontSize: 14),
+              ),
+            ],
           ),
         ),
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 6,
-            height: 6,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: Color(0xFF4CAF82),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Icon(
-            Icons.description_outlined,
-            size: 14,
-            color: const Color(0xFFD4AF6A).withValues(alpha: 0.8),
-          ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              _uploadedFileName!,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: context.textSecondary,
+    );
+
+    try {
+      final docName = _uploadedFileName ?? 'document';
+      final bytes = await ReportService.generateBytes(
+        docId: currentDocId!,
+        docName: docName,
+        blockchainTx: currentBlockchainTx,
+      );
+      if (!mounted) return;
+      Navigator.pop(context); // dismiss progress
+      _showReportOptions(bytes, ReportService.fileName(docName));
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context); // dismiss progress
+      _showInfoSnackbar('Could not generate report: $e');
+    }
+  }
+
+  /// Bottom sheet letting the user Download (save to device) or Share the report.
+  void _showReportOptions(Uint8List bytes, String filename) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: context.cardColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetCtx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: context.borderColor,
+                borderRadius: BorderRadius.circular(2),
               ),
-              overflow: TextOverflow.ellipsis,
             ),
-          ),
-          Text(
-            'Active',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFF4CAF82).withValues(alpha: 0.8),
-              letterSpacing: 0.3,
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  Icon(Icons.description_outlined,
+                      size: 20, color: context.accentStrong),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Your report is ready',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: context.textPrimary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            ListTile(
+              leading: Icon(Icons.download_rounded, color: context.accentStrong),
+              title: Text('Download',
+                  style: TextStyle(color: context.textPrimary)),
+              subtitle: Text('Save the PDF to your device',
+                  style: TextStyle(color: context.textSecondary, fontSize: 12.5)),
+              onTap: () {
+                Navigator.pop(sheetCtx);
+                ReportService.download(bytes, filename);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.ios_share_rounded, color: context.accentStrong),
+              title: Text('Share',
+                  style: TextStyle(color: context.textPrimary)),
+              subtitle: Text('Send via apps, email, or save to Files',
+                  style: TextStyle(color: context.textSecondary, fontSize: 12.5)),
+              onTap: () {
+                Navigator.pop(sheetCtx);
+                ReportService.share(bytes, filename);
+              },
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
       ),
     );
   }
@@ -850,6 +1028,12 @@ class _ChatScreenState extends State<ChatScreen> {
               label: 'Key Risks',
               onTap: () => sendMessage('What are the key risks in this contract?', null, null),
             ),
+            const SizedBox(width: 8),
+            _QuickActionChip(
+              icon: Icons.picture_as_pdf_rounded,
+              label: 'Export PDF',
+              onTap: _exportReport,
+            ),
           ],
         ),
       ),
@@ -859,15 +1043,15 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: context.bgColor,
+      backgroundColor: context.isDark ? context.bgColor : Colors.white,
       appBar: _buildAppBar(context),
       drawer: Drawer(
         width: MediaQuery.of(context).size.width * 0.85,
         backgroundColor: context.bgColor,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.only(
-            topRight: Radius.circular(24),
-            bottomRight: Radius.circular(24),
+            topRight: Radius.circular(20),
+            bottomRight: Radius.circular(20),
           ),
         ),
         child: const DashboardScreen(asDrawer: true),
@@ -877,8 +1061,8 @@ class _ChatScreenState extends State<ChatScreen> {
         backgroundColor: context.bgColor,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(24),
-            bottomLeft: Radius.circular(24),
+            topLeft: Radius.circular(20),
+            bottomLeft: Radius.circular(20),
           ),
         ),
         child: const SettingsScreen(asDrawer: true),
@@ -896,7 +1080,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    const Color(0xFF7B5EA7).withValues(alpha: context.isDark ? 0.15 : 0.08),
+                    const Color(0xFF7B5EA7).withValues(alpha: context.isDark ? 0.15 : 0.12),
                     Colors.transparent,
                   ],
                 ),
@@ -914,42 +1098,20 @@ class _ChatScreenState extends State<ChatScreen> {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    const Color(0xFFC9A84C).withValues(alpha: context.isDark ? 0.10 : 0.07),
+                    context.accent.withValues(alpha: context.isDark ? 0.10 : 0.11),
                     Colors.transparent,
                   ],
                 ),
               ),
             ),
           ),
-          // Light mode: subtle warm tint across the chat area
-          if (!context.isDark)
-            Positioned.fill(
-              child: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Color(0xFFFAF8F5),
-                      Color(0xFFF4F2EE),
-                      Color(0xFFF8F6F2),
-                    ],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    stops: [0.0, 0.5, 1.0],
-                  ),
-                ),
-              ),
-            ),
-
           Column(
             children: [
-              // Document status strip
-              _buildDocumentStrip(context),
-
               // Quick action chips
               _buildQuickActions(context),
 
               Expanded(
-                child: messages.length <= 1 && !isTyping
+                child: messages.isEmpty && !isTyping
                     ? _buildWelcomeHero(context)
                     : ListView.builder(
                         controller: _scrollController,
@@ -1021,11 +1183,11 @@ class _ChatScreenState extends State<ChatScreen> {
                                         ),
                                       );
                                     },
-                                    icon: const Icon(Icons.verified_outlined, size: 16, color: Color(0xFFD4AF6A)),
-                                    label: const Text(
+                                    icon: Icon(Icons.verified_outlined, size: 16, color: context.accent),
+                                    label: Text(
                                       'Verify on Blockchain',
                                       style: TextStyle(
-                                        color: Color(0xFFD4AF6A),
+                                        color: context.accent,
                                         fontSize: 13,
                                         fontWeight: FontWeight.w600,
                                       ),
@@ -1033,8 +1195,8 @@ class _ChatScreenState extends State<ChatScreen> {
                                     style: TextButton.styleFrom(
                                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                       shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                        side: BorderSide(color: const Color(0xFFD4AF6A).withAlpha(60)),
+                                        borderRadius: BorderRadius.circular(12),
+                                        side: BorderSide(color: context.accent.withAlpha(60)),
                                       ),
                                     ),
                                   ),
@@ -1065,20 +1227,14 @@ class _ChatScreenState extends State<ChatScreen> {
                     color: context.cardColor,
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: const Color(0xFFD4AF6A).withValues(alpha: 0.3),
+                      color: context.accent.withValues(alpha: 0.3),
                       width: 1,
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.2),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
+                    boxShadow: context.softShadow,
                   ),
                   child: Icon(
                     Icons.keyboard_arrow_down_rounded,
-                    color: const Color(0xFFD4AF6A).withValues(alpha: 0.8),
+                    color: context.accent.withValues(alpha: 0.8),
                     size: 22,
                   ),
                 ),
@@ -1106,13 +1262,6 @@ class _ChatScreenState extends State<ChatScreen> {
                 width: 1,
               ),
             ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF7B5EA7).withValues(alpha: 0.12),
-                blurRadius: 24,
-                offset: const Offset(0, 4),
-              ),
-            ],
           ),
         ),
         // Hamburger → opens left drawer (Dashboard)
@@ -1165,28 +1314,14 @@ class _SuggestionChip extends StatelessWidget {
           color: context.isDark
               ? const Color(0xFF12122A)
               : Colors.white,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: context.isDark
-                ? const Color(0xFFD4AF6A).withValues(alpha: 0.18)
-                : const Color(0xFFD4AF6A).withValues(alpha: 0.22),
+                ? context.accent.withValues(alpha: 0.18)
+                : context.accent.withValues(alpha: 0.22),
             width: 1,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: context.isDark
-                  ? Colors.black.withValues(alpha: 0.15)
-                  : const Color(0xFFD4AF6A).withValues(alpha: 0.08),
-              blurRadius: 12,
-              offset: const Offset(0, 3),
-            ),
-            if (!context.isDark)
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 6,
-                offset: const Offset(0, 1),
-              ),
-          ],
+          boxShadow: context.softShadow,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -1195,8 +1330,8 @@ class _SuggestionChip extends StatelessWidget {
               icon,
               size: 15,
               color: context.isDark
-                  ? const Color(0xFFD4AF6A).withValues(alpha: 0.8)
-                  : const Color(0xFFB8943A),
+                  ? context.accent.withValues(alpha: 0.8)
+                  : context.accentStrong,
             ),
             const SizedBox(width: 8),
             Text(
@@ -1239,29 +1374,21 @@ class _QuickActionChip extends StatelessWidget {
           gradient: LinearGradient(
             colors: context.isDark
                 ? [
-                    const Color(0xFFD4AF6A).withValues(alpha: 0.14),
-                    const Color(0xFFF5D98B).withValues(alpha: 0.06),
+                    context.accent.withValues(alpha: 0.14),
+                    context.accentSecondary.withValues(alpha: 0.06),
                   ]
                 : [
-                    const Color(0xFFD4AF6A).withValues(alpha: 0.10),
-                    const Color(0xFFF5D98B).withValues(alpha: 0.05),
+                    context.accent.withValues(alpha: 0.10),
+                    context.accentSecondary.withValues(alpha: 0.05),
                   ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: const Color(0xFFD4AF6A).withValues(alpha: context.isDark ? 0.30 : 0.25),
+            color: context.accent.withValues(alpha: context.isDark ? 0.30 : 0.25),
             width: 1,
           ),
-          boxShadow: [
-            if (!context.isDark)
-              BoxShadow(
-                color: const Color(0xFFD4AF6A).withValues(alpha: 0.08),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-          ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -1270,8 +1397,8 @@ class _QuickActionChip extends StatelessWidget {
               icon,
               size: 14,
               color: context.isDark
-                  ? const Color(0xFFD4AF6A)
-                  : const Color(0xFFB8943A),
+                  ? context.accent
+                  : context.accentStrong,
             ),
             const SizedBox(width: 6),
             Text(
@@ -1280,8 +1407,8 @@ class _QuickActionChip extends StatelessWidget {
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: context.isDark
-                    ? const Color(0xFFD4AF6A)
-                    : const Color(0xFFB8943A),
+                    ? context.accent
+                    : context.accentStrong,
               ),
             ),
           ],

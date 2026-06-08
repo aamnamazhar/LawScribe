@@ -21,6 +21,10 @@ dependencies:
   cloud_firestore: ^6.2.0
   http: ^1.2.2
   shared_preferences: ^2.3.3
+
+  # PDF report export
+  pdf: ^3.11.1
+  printing: ^5.13.3
   
 dev_dependencies:
   flutter_test:
