@@ -46,3 +46,18 @@ node_modules/
 # --- Thesis docs & Colab training notebooks (not part of the app) ---
 docs/
 *.ipynb
+
+# --- Datasets (too large / not code — keep out of the repo) ---
+CUAD Dataset/
+LEDGAR_2016-2019_clean.jsonl.zip
+*.jsonl
+hr_qa_dataset.csv
+LawScribe_Datasets.docx
+
+# --- Local presentation & prep artifacts (not part of the app) ---
+DATASETS.md
+PRESENTATION_QA.md
+FIGURES.md
+LawScribe_Figures.drawio
+make_datasets_doc.py
+make_drawio.py

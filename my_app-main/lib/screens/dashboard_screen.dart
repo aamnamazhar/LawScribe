@@ -222,7 +222,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           }
           final maxVal = raw.reduce((a, b) => a > b ? a : b);
           if (maxVal == 0) return List.filled(7, 0.0);
-          return raw.map((c) => c / maxVal).toList();
+          // Scale against a baseline "busy day" so a single query shows a small
+          // bar instead of spiking to full height; once a day exceeds the
+          // baseline, bars scale relative to the actual busiest day.
+          final denom = maxVal < 10 ? 10 : maxVal;
+          return raw.map((c) => c / denom).toList();
         });
   }
 

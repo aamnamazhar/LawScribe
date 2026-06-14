@@ -10,7 +10,7 @@ class ApiService {
   // The HTTP default below is for local development only.
   static const String baseUrl = String.fromEnvironment(
     "BACKEND_URL",
-    defaultValue: "http://192.168.1.4:8000",
+    defaultValue: "http://192.168.1.18:8000",
   );
 
   static const _timeout = Duration(seconds: 60);
